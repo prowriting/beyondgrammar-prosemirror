@@ -1,0 +1,32 @@
+{
+  "name": "beyondgrammar-prosemirror",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "webpack-dev-server --port 8082 --config ./conf/webpack-demo.conf.js --content-base build/",
+    "startLocal:": "webpack-dev-server --port 8082 --config ./conf/webpack-demo.conf.js --content-base build/",
+    "build": "./node_modules/.bin/webpack --config ./conf/webpack-demo.conf.js ",
+    "build:CI": "./node_modules/.bin/webpack --config ./conf/webpack-demo.CI.conf.js "
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/jquery": "2.0.48",
+    "@types/node": "8.0.15",
+    "copy-webpack-plugin": "^4.0.1",
+    "css-loader": "^0.28.1",
+    "expose-loader": "^0.7.1",
+    "graceful-fs": "^4.1.10",
+    "style-loader": "^0.17.0",
+    "ts-loader": "^1.1.0",
+    "typescript": "2.2.2",
+    "url-loader": "^0.5.8",
+    "webpack": "^1.13.2",
+    "webpack-dev-server": "^1.16.2"
+  },
+  "dependencies": {
+    "core-js": "2.4.1",
+    "jquery": "^2.2.4"
+  }
+}

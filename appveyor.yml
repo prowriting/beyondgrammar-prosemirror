@@ -1,0 +1,50 @@
+# Test against the latest version of this Node.js version
+environment:
+  nodejs_version: "6"
+
+# Install scripts. (runs after repo cloning)
+install:
+  # Get the latest stable version of Node.js or io.js
+  - ps: Install-Product node $env:nodejs_version
+  # install modules
+  - npm install
+
+# Post-install test scripts.
+test_script:
+  # Output useful info for debugging.
+  # - node --version
+  # - npm --version
+  # run tests
+  # npm test -- singleRun
+  
+
+# Don't actually build.
+#build: off
+build_script:
+  - node --version
+  - npm --version
+  - npm run build:CI  
+  
+artifacts:
+  - path: 'dist/*.js'
+    name: prosemirror
+
+notifications:
+- provider: Slack
+  incoming_webhook: 
+    secure: Ayc6czyM66EzMrNgNMuWGV6m5ElTa7uzvin0/f6QBfttfkg1gfWy0lkddqkN9APXC4GCl5ekQIyZSpfZheCP7uHEmQC0Zi5Y2hzrMXLrmvE=
+  channel: realtime-grammar
+  on_build_success: true
+  on_build_failure: true
+  on_build_status_changed: false
+  
+deploy:
+  provider: AzureBlob
+  storage_account_name: prowritingaid
+  storage_access_key: 
+    secure: gzyqglVhkink16D5LDmANUnHDoe/yvOCDWr79JlBDX5pSf6ewKBwGr1ttNd0a08+J/rQbyEmXw8mLxDLoBJwrFxYqsZQIMEhcR7chDy5p2aNK+wA5IxmI2NFwtW8LaWb
+  container: cdn
+  folder: $(APPVEYOR_PROJECT_SLUG)\$(APPVEYOR_BUILD_VERSION)
+  artifact: tinymce
+  unzip: false
+  set_content_type:  true

@@ -3,8 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <title>Beyond Grammar - Prosemirror Test</title>
+
+    <base href="http://prosemirror.net/">
+    
+    <link rel=stylesheet href="https://prosemirror.net/css/editor.css">
+    
+    <script
+            src="https://code.jquery.com/jquery-3.2.1.min.js"
+            integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+            crossorigin="anonymous"></script>
+    
+    <script src="https://prosemirror.net/examples/prosemirror.js"></script>
+    
+    <script src="http://localhost:8082/beyond-grammar-plugin.js"></script>
+    
+    <link rel=stylesheet href="https://prosemirror.net/css/editor.css"> 
+    
 </head>
 <body>
+
+<div style="display: none;" id="content">
+    <h3>Hello ProseMirror</h3>
+
+    <p>This is editable text. You can focus it and start typing.</p>
+
+    <p>To apply styling, you can select a piece of text and manipulate
+        its styling from the menu. The basic schema
+        supports <em>emphasis</em>, <strong>strong
+            text</strong>, <a href="http://marijnhaverbeke.nl/blog">links</a>, <code>code
+            font</code>, and <img src="/img/smiley.png"> images.</p>
+
+    <p>Block-level structure can be manipulated with key bindings (try
+        ctrl-shift-2 to create a level 2 heading, or enter in an empty
+        textblock to exit the parent block), or through the menu.</p>
+
+    <p>Try using the “list” item in the menu to wrap this paragraph in
+        a numbered list.</p>
+</div>
+
+<div id="editor"></div>
+
+<script>
+    $(function() { (function (prosemirrorState, prosemirrorView, prosemirrorModel, prosemirrorSchemaBasic, prosemirrorSchemaList, prosemirrorExampleSetup) {
+        'use strict';
+        
+        //init prosemirror
+        // Mix the nodes from prosemirror-schema-list into the basic schema to
+        // create a schema with list support.
+        let mySchema = new prosemirrorModel.Schema({
+            nodes: prosemirrorSchemaList.addListNodes(prosemirrorSchemaBasic.schema.spec.nodes, "paragraph block*", "block"),
+            marks: prosemirrorSchemaBasic.schema.spec.marks
+        });
+
+        let editor = new prosemirrorView.EditorView(document.getElementById("editor"), {
+            state: prosemirrorState.EditorState.create({
+                doc: prosemirrorModel.DOMParser.fromSchema(mySchema).parse(document.getElementById("content")),
+                plugins: prosemirrorExampleSetup.exampleSetup({schema: mySchema })
+            })
+        });
+
+    }(PM.state, PM.view, PM.model, PM.schema_basic, PM.schema_list, PM.example_setup))});
+
+</script>
 
 </body>
 </html>

@@ -37,7 +37,7 @@ module.exports = {
 			});
 		},
         new CopyWebpackPlugin([
-            { from: './src/tinymce.html', to: './' },
+            { from: './src/prosemirror.html', to: './' },
             { context : './src', from: {glob : './icons/**/*'}, to:'./' },
         ])
     ],

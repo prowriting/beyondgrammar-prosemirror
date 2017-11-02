@@ -14,7 +14,8 @@
             crossorigin="anonymous"></script>
     
     <script src="https://prosemirror.net/examples/prosemirror.js"></script>
-    
+
+    <script src="http://localhost:8080/bundle.js"></script>
     <script src="http://localhost:8082/beyond-grammar-plugin.js"></script>
     
     <link rel=stylesheet href="https://prosemirror.net/css/editor.css"> 
@@ -47,7 +48,7 @@
     $(function() { (function (prosemirrorState, prosemirrorView, prosemirrorModel, prosemirrorSchemaBasic, prosemirrorSchemaList, prosemirrorExampleSetup) {
         'use strict';
         
-        //init prosemirror
+        // init prosemirror
         // Mix the nodes from prosemirror-schema-list into the basic schema to
         // create a schema with list support.
         let mySchema = new prosemirrorModel.Schema({
@@ -55,14 +56,28 @@
             marks: prosemirrorSchemaBasic.schema.spec.marks
         });
 
+        let createBeyondGrammarPluginSpec = window["BeyondGrammar"].createBeyondGrammarPluginSpec;///ProseMirrorPlugin({ apiKey : "TEST_CDB" });
+        
+        let spec = createBeyondGrammarPluginSpec(PM, document.getElementById("editor"),{
+            service : { apiKey : "TESTME_CDB", serviceUrl : "//rtg.prowritingaid.com" }, grammar : {}
+        });
+        
+        let plugin = new prosemirrorState.Plugin( spec );
+        
         let editor = new prosemirrorView.EditorView(document.getElementById("editor"), {
             state: prosemirrorState.EditorState.create({
-                doc: prosemirrorModel.DOMParser.fromSchema(mySchema).parse(document.getElementById("content")),
-                plugins: prosemirrorExampleSetup.exampleSetup({schema: mySchema })
-            })
+                doc: prosemirrorModel.DOMParser
+                    .fromSchema(mySchema) 
+                    .parse(document.getElementById("content")),
+                plugins: prosemirrorExampleSetup
+                    .exampleSetup({schema: mySchema })
+                    .concat( plugin )
+            }) 
         });
-
-    }(PM.state, PM.view, PM.model, PM.schema_basic, PM.schema_list, PM.example_setup))});
+        
+        spec.editorView = editor;
+ 
+    }(PM.state, PM.view, PM.model, PM.schema_basic, PM.schema_list, PM.example_setup, PM.menu))});
 
 </script>
 

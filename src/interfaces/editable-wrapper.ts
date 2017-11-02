@@ -1,7 +1,31 @@
 ///<reference path="../../rangy.d.ts"/>
 
+export interface BGOptions {
+    service ?: ServiceSettings;
+    grammar?: GrammarCheckerSettings;
+}
+
+
 //Interfaces from BeyondGrammar Core : 
 
+export class GrammarCheckerSettings {
+    languageFilter ?: string[];
+    languageIsoCode ?: string;
+    checkGrammar ?: boolean;
+    checkSpelling ?: boolean;
+    checkStyle ?: boolean;
+    showThesaurusByDoubleClick ?: boolean;
+    showContextThesaurus ?: boolean;
+    checkerIsEnabled ?: boolean;
+    disableDictionary ?:boolean;
+}
+
+export interface ServiceSettings{
+    sourcePath?: string;
+    serviceUrl ?: string;
+    userId ?: string;
+    apiKey ?: string;
+}
 
 export class Tag{
     startPos : number;

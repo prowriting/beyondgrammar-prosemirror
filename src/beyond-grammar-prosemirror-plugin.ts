@@ -10,8 +10,10 @@ import * as ProseMirrorState from 'prosemirror-state';
 import * as ProseMirrorModel from 'prosemirror-model';
 import {uuid} from "./utils/uuid";
 import * as $ from "jquery";
-import {Mark} from "prosemirror-model";
+import {Mark, Slice} from "prosemirror-model";
+import {strictEqual} from "assert";
 //import {DecorationSet} from "prosemirror-view"
+export const CSS_IGNORED = 'pwa-mark-ignored';
 
 export function createBeyondGrammarPluginSpec(pm, element : HTMLElement, bgOptions ?: BGOptions ) {
     //let scriptLoader = 
@@ -24,19 +26,19 @@ export function createBeyondGrammarPluginSpec(pm, element : HTMLElement, bgOptio
         grammar : {}
     });*/
     //TODO return restoring/defaulting config
-    
-    
-    let plugin = new BeyondGrammarProseMirrorPlugin(pm, bgOptions.service, bgOptions.grammar);
-    
-    
+
+    let $element = $(element);
+    let plugin = new BeyondGrammarProseMirrorPlugin($element, bgOptions.service, bgOptions.grammar);
+
+    window["BeyondGrammar"].loadPwaMarkStyles(window);
     
     //setTimeout(()=>{
-        let grammarChecker = new window["BeyondGrammar"].GrammarChecker($(element).find('[contenteditable]')[0], bgOptions.service, bgOptions.grammar, plugin);
+        let grammarChecker = new window["BeyondGrammar"].GrammarChecker($element.find('[contenteditable]')[0], bgOptions.service, bgOptions.grammar, plugin);
         grammarChecker.init().then(()=>{
             grammarChecker.activate();
             plugin.activate();
         });
-    //}, 1000)
+    //}, 1000
     
     
     return plugin;//new BeyondGrammarProseMirrorPlugin(pm, bgOptions.serviceSettings, bgOptions.grammarSettings);
@@ -78,6 +80,7 @@ class DecorationInfo{
         this.highlightInfo.category=tag.category;
         this.highlightInfo.hint=tag.hint;
         this.highlightInfo.suggestions=tag.suggestions;
+        this.highlightInfo.word = "//TODO"; //TODO  //tag.text.substring(tag.startPos, tag.endPos);
 
         this.id = 'pwa-' + uuid();
     }
@@ -111,8 +114,44 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     private decos : DecorationSet;
     private doc : ProseMirrorModel.Node;
     
-    constructor( private pm, private serviceSettings : ServiceSettings, private grammarCheckerSettings : GrammarCheckerSettings){
+    constructor( private $element_ : JQuery, private serviceSettings : ServiceSettings, private grammarCheckerSettings : GrammarCheckerSettings){
         this.initState();
+
+        this.$element_.on('scroll', ()=> {
+            // close the popup, otherwise it moves away from the word
+            if (this.onPopupClose){
+                this.onPopupClose();
+            }
+        });
+
+        this.$element_.on('keydown', (evt)=> {
+            // if we press a button in the text then close the popup
+            if(evt.keyCode == 17){
+                //temporally solution for awhile we use ctrlKey for opening contextual thesaurus
+                return;
+            }
+            if (this.onPopupClose){
+                this.onPopupClose();
+            }
+        });
+
+        // activates suggestion popup
+        // @TODO: move to separate method
+        this.$element_.on('mouseover touchend', `.pwa-mark:not(.${CSS_IGNORED})`, (evt: JQueryEventObject) => {
+            let elem = evt.target,
+                uid = elem.getAttribute('data-pwa-id');
+
+            if (this.onShowPopup){
+                this.onShowPopup(uid, elem);
+            }
+        });
+
+        this.$element_.on('mouseleave', '.pwa-mark', () => {
+            if (this.onPopupDeferClose){
+                this.onPopupDeferClose();
+            }
+        });
+        
     }
     
     initState() {
@@ -132,9 +171,13 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                 if (tr.docChanged) {
                     // I think we need to update our decos using the mapping of
                     // the transaction. This should update all the from and tos
-                    //this.decos.map(tr.mapping);
-
+                    //self.decos.map(tr.mapping);
+                    //this.spec.decos.map(tr.mapping, self.doc);
                     // get the range that is affected by the transformation
+
+                    this.spec.decos.map(tr.mapping, self.doc);
+                    
+                    
                     let range = self.rangeFromTransform(tr);
                     //console.log(range);
                     // update all the blocks that have been affected by the transformation
@@ -143,7 +186,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                     self.doc.nodesBetween(range.from, range.to, (elem) => {
                         if (elem.isTextblock) {
                             if (self.onBlockChanged) {
-                                console.info("onBlockChanged")
+                                console.info("onBlockChanged", elem);
                                 self.onBlockChanged(<any>elem);
                                 return false;
                             }
@@ -151,6 +194,8 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                         }
                         return true;
                     });
+
+                    //
                     
                     //console.log((tr)); 
                      
@@ -165,6 +210,8 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                 }
                 // a special transaction just for us to supply our updated decos
                 if (tr.getMeta(PWA_DECO_UPDATE_META)){
+                    //this.spec.decos.map(tr.mapping, self.doc);
+                    this.spec.decos.map(tr.mapping, self.doc); 
                     console.info("apply highlights");
                     return self.decos;
                 }
@@ -186,9 +233,8 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     get props() : any{
         let self = this;
         return {
-            decorations(state){
-                return self.decos;
-            }
+            decorations(state) { return this.spec.decos },
+            handleDOMEvents(){ console.log("event", arguments) }
         }
     }
     
@@ -290,7 +336,11 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                     let attrs = {
                         class: 'pwa-mark',
                         nodeName : "span",
-                        "data-pwa-id" : info.id
+                        "data-pwa-id" : info.id,
+                        'data-pwa-category': tag.category.toLowerCase(),
+                        'data-pwa-hint': tag.hint,
+                        'data-pwa-suggestions': tag.suggestions.join("~"),
+                        'data-pwa-dictionary-word' : tag.text//,//textAndMap.text.substr(tag.startPos,tag.endPos-tag.startPos+1)
                     };
                     
                     let deco = ProseMirrorView.Decoration.inline(tag.startPos, tag.endPos, attrs, info);
@@ -309,7 +359,9 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     private applyDecoUpdateTransaction(){
         let tr = this.editorView.state.tr;
         tr.setMeta(PWA_DECO_UPDATE_META,true);
-        this.editorView.state.apply(tr);
+        //this.decos.map(tr.mapping, this.doc);
+        let newState = this.editorView.state.apply(tr);
+        this.editorView.updateState(newState);
     }
 
     onAddToDictionary(uid:string):void {
@@ -330,14 +382,14 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     }
 
     getHighlightInfo(uid:string):HighlightInfo {
-        var decos = this.editorView.props.decorations(this.editorView.state);
+        var decos = this.decos;///this.editorView.props.decorations(this.editorView.state);
         if (decos) {
             let highlights = (<DecorationSet>decos).
             find(0, this.doc.textContent.length, (spec: { [key: string]: any }) => {
                 return (<DecorationInfo>spec).id == uid;
             });
             if (highlights){
-                return <HighlightInfo>highlights[0].spec;
+                return <HighlightInfo>highlights[0].spec.highlightInfo;
             }
         }
         return null;
@@ -374,14 +426,16 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     }
 
     accept(uid:string, suggestion:string):void {
-        /*let deco = this.getDecoById(uid);
+        let deco = this.getDecoById(uid);
         if (deco){
+            this.decos = this.decos.remove([deco]);
             let tr = this.editorView.state.tr;
-            let slice = new Slice();
-            tr.replace(deco.from,deco.to,slice);
-            this.editorView.state.applyTransaction(tr)
-        }*/
-        this.applyDecoUpdateTransaction();
+            //let slice = new Slice();
+            tr.replace(deco.from,deco.to);
+            tr.insertText(suggestion);
+            this.editorView.state.applyTransaction(tr);
+            this.applyDecoUpdateTransaction();
+        }
     }
 
     applyThesaurus(replacement:string):void {

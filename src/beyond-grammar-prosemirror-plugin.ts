@@ -4,7 +4,7 @@ import {
 } from "./interfaces/editable-wrapper";
 import {objectAssign} from "./utils";
 import {PluginSpec, Transaction} from "prosemirror-state";
-import {Decoration, DecorationSet} from "prosemirror-view";
+import {Decoration, DecorationSet, EditorProps} from "prosemirror-view";
 import * as ProseMirrorView  from 'prosemirror-view';
 import * as ProseMirrorState from 'prosemirror-state';
 import * as ProseMirrorModel from 'prosemirror-model';
@@ -28,17 +28,16 @@ export function createBeyondGrammarPluginSpec(pm, element : HTMLElement, bgOptio
     //TODO return restoring/defaulting config
 
     let $element = $(element);
+    let $contentEditable = $element.find("[contenteditable]");
     let plugin = new BeyondGrammarProseMirrorPlugin($element, bgOptions.service, bgOptions.grammar);
 
     window["BeyondGrammar"].loadPwaMarkStyles(window);
-    
-    //setTimeout(()=>{
-        let grammarChecker = new window["BeyondGrammar"].GrammarChecker($element.find('[contenteditable]')[0], bgOptions.service, bgOptions.grammar, plugin);
-        grammarChecker.init().then(()=>{
-            grammarChecker.activate();
-            plugin.activate();
-        });
-    //}, 1000
+
+    let grammarChecker = new window["BeyondGrammar"].GrammarChecker($contentEditable[0], bgOptions.service, bgOptions.grammar, plugin);
+    grammarChecker.init().then(()=>{
+        grammarChecker.activate();
+        plugin.activate();
+    });
     
     
     return plugin;//new BeyondGrammarProseMirrorPlugin(pm, bgOptions.serviceSettings, bgOptions.grammarSettings);
@@ -111,12 +110,17 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
 
     public editorView: ProseMirrorView.EditorView;
     private _state : any;
+    private _props : EditorProps;
     private decos : DecorationSet;
     private doc : ProseMirrorModel.Node;
     
     constructor( private $element_ : JQuery, private serviceSettings : ServiceSettings, private grammarCheckerSettings : GrammarCheckerSettings){
         this.initState();
-
+        this.initProps();
+        this.bindEditableEvents();
+    }
+    
+    bindEditableEvents() {
         this.$element_.on('scroll', ()=> {
             // close the popup, otherwise it moves away from the word
             if (this.onPopupClose){
@@ -151,12 +155,16 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                 this.onPopupDeferClose();
             }
         });
-        
     }
+
+    /**
+     * Implementation of ProseMirror plugin interface
+     */
     
     initState() {
         let self = this;
-        this.decos = DecorationSet.empty;
+        this.decos = DecorationSet.empty;//.create(this.doc, []);
+        
         this._state = {
             init(config, state){
                 // we should start the checker
@@ -164,18 +172,25 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                 // we do nothing here
                 self.doc= state.doc;
                 //console.log(self.doc);
-                return self.decos;
+                return {decos : self.decos};
             },
             
-            apply( tr : Transaction, value, old ) {
+            apply( tr : Transaction, value, old, newState ) {
+                
+                console.log("apply value=", value);
+                console.log(newState);
+                
+                //storing new doc, as it was changed after transactions
+                self.doc = newState.doc;
+                
                 if (tr.docChanged) {
                     // I think we need to update our decos using the mapping of
                     // the transaction. This should update all the from and tos
                     //self.decos.map(tr.mapping);
-                    //this.spec.decos.map(tr.mapping, self.doc);
+                    self.decos.map(tr.mapping, self.doc);
                     // get the range that is affected by the transformation
 
-                    this.spec.decos.map(tr.mapping, self.doc);
+                    //self.decos.value.map(tr.mapping, self.doc);
                     
                     
                     let range = self.rangeFromTransform(tr);
@@ -211,104 +226,39 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                 // a special transaction just for us to supply our updated decos
                 if (tr.getMeta(PWA_DECO_UPDATE_META)){
                     //this.spec.decos.map(tr.mapping, self.doc);
-                    this.spec.decos.map(tr.mapping, self.doc); 
+                    //this.spec.decos.map(tr.mapping, self.doc); 
                     console.info("apply highlights");
-                    return self.decos;
+                    return { decos : self.decos };//self.decos;
                 }
                 //value.apply(tr);
                 //console.info(value == this.decos);
-                return tr.docChanged ? self.decos : old
+                return {decos : self.decos};//newState;//tr.docChanged ? this.decos : old
             }
         }
     }
+    
+    initProps() {
+        this._props = {
+            decorations(state) { return this.spec.decos }
+        }
+    }
+    
+    get state(): any {
+        return this._state;
+    }
 
+    get props() : any{
+        return this._props;
+    }
+    
     activate() {
         
     }
 
-    get state(): any {
-        return this._state;
-    }
+    /**
+     * Implementations of IEditableWrapper
+     */
     
-    get props() : any{
-        let self = this;
-        return {
-            decorations(state) { return this.spec.decos },
-            handleDOMEvents(){ console.log("event", arguments) }
-        }
-    }
-    
-    getText(blockElement:HTMLElement):string {
-        let node = <ProseMirrorModel.Node>(<any>blockElement);
-        return node.textContent;
-    }
-
-    clearMarks(skipIgnored:boolean):void {
-        if (!skipIgnored) {
-            this.decos = DecorationSet.empty;
-        }else {
-            // TODO skip ignore depends on the implementation of ignore
-        }
-        this.applyDecoUpdateTransaction();
-    } 
-
-    bindEditable():void {
-    }
-
-    unbindEditable():void {
-    }
-
-    bindChangeEvents():void {
-    }
-
-    unbindChangeEvents():void {
-    }
-
-    getAllElements():HTMLElement[] {
-        let result = [];
-        this.doc.descendants((node)=>{
-            if (node.isTextblock){
-                result.push(node);
-                return false;
-            }
-            return true;
-        });
-        return result;
-    }
-
-    private getPositionInDocument(theNode: ProseMirrorModel.Node): number{
-        var pos = 0;
-        var finished = false;
-        this.doc.descendants((node)=>{
-            if (finished){
-                return false;
-            }
-            if (node.isTextblock){
-                if (node.eq(theNode)){
-                    finished=true;
-                }else {
-                    pos += node.textContent.length;
-                }
-                return false;
-            }
-            return true;
-        });
-        return pos;
-    }
-
-    private rangeFromTransform(tr: Transaction): DocRange {
-        let from, to;
-        for (let i = 0; i < tr.steps.length; i++) {
-            let step = <any>tr.steps[i],
-                map = step.getMap()
-            let stepFrom = map.map(step.from || step.pos, -1)
-            let stepTo = map.map(step.to || step.pos, 1)
-            from = from ? map.map(from, -1).pos.min(stepFrom) : stepFrom
-            to = to ? map.map(to, 1).pos.max(stepTo) : stepTo
-        }
-        return new DocRange( from, to );
-    }
-
     applyHighlightsSingleBlock(elem:HTMLElement, text:string, tags:Tag[], checkAll:boolean):void {
         //console.log("apply")
         let node = <ProseMirrorModel.Node><any>elem;
@@ -316,13 +266,13 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
             let start = this.getPositionInDocument(node);
             let length = text.length;
             // find the decos from the start and end of this element an remove them
-            var decosForBlock = this.decos.find(start,start+length);
+            let decosForBlock = this.decos.find(start,start+length);
             //console.log(decosForBlock);
             let newDecos = [];
-            for(var i = 0; i < tags.length; i++){
+            for(let i = 0; i < tags.length; i++){
                 let tag = tags[i];
                 let existing : Decoration = null;
-                for(var k= 0; k< decosForBlock.length-1; k++){
+                for(let k= 0; k< decosForBlock.length-1; k++){
                     if (decosForBlock[k].from===tag.startPos && decosForBlock[k].to===tag.endPos){
                         decosForBlock.splice(i,1);
                         existing=decosForBlock[k];
@@ -356,12 +306,55 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         }
     }
 
-    private applyDecoUpdateTransaction(){
-        let tr = this.editorView.state.tr;
-        tr.setMeta(PWA_DECO_UPDATE_META,true);
-        //this.decos.map(tr.mapping, this.doc);
-        let newState = this.editorView.state.apply(tr);
-        this.editorView.updateState(newState);
+    getHighlightInfo(uid:string):HighlightInfo {
+        let decos = this.decos;///this.editorView.props.decorations(this.editorView.state);
+        if (decos) {
+            let highlights = (<DecorationSet>decos).
+            find(0, this.doc.textContent.length, (spec: { [key: string]: any }) => {
+                return (<DecorationInfo>spec).id == uid;
+            });
+            if (highlights){
+                return <HighlightInfo>highlights[0].spec.highlightInfo;
+            }
+        }
+        return null;
+    }
+
+    clearMarks(skipIgnored:boolean):void {
+        if (!skipIgnored) {
+            this.decos = DecorationSet.empty;
+        }else {
+            // TODO skip ignore depends on the implementation of ignore
+        }
+        this.applyDecoUpdateTransaction();
+    }
+
+    ignore(uid:string):void {
+        //TODO change the deco to ignored
+        //this.applyDecoUpdateTransaction();
+    }
+
+    omit(uid:string):void {
+        /*let deco = this.getDecoById(uid);
+        if (deco){
+            let tr = this.editorView.state.tr;
+            tr.delete(deco.from,deco.to);
+            this.editorView.state.applyTransaction(tr)
+        }
+        this.applyDecoUpdateTransaction();*/
+    }
+
+    accept(uid:string, suggestion:string):void {
+        /*let deco = this.getDecoById(uid);
+        if (deco){
+            this.decos = this.decos.remove([deco]);
+            let tr = this.editorView.state.tr;
+            //let slice = new Slice();
+            tr.replace(deco.from,deco.to);
+            tr.insertText(suggestion);
+            this.editorView.state.applyTransaction(tr);
+            this.applyDecoUpdateTransaction();
+        }*/
     }
 
     onAddToDictionary(uid:string):void {
@@ -381,79 +374,98 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         }
     }
 
-    getHighlightInfo(uid:string):HighlightInfo {
-        var decos = this.decos;///this.editorView.props.decorations(this.editorView.state);
-        if (decos) {
-            let highlights = (<DecorationSet>decos).
-            find(0, this.doc.textContent.length, (spec: { [key: string]: any }) => {
-                return (<DecorationInfo>spec).id == uid;
-            });
-            if (highlights){
-                return <HighlightInfo>highlights[0].spec.highlightInfo;
+    applyThesaurus(replacement:string):void {
+        //TODO
+    }
+
+    getText(blockElement:HTMLElement):string {
+        let node = <ProseMirrorModel.Node>(<any>blockElement);
+        return node.textContent;
+    }
+    
+    getAllElements():HTMLElement[] {
+        let result = [];
+        this.doc.descendants((node)=>{
+            if (node.isTextblock){
+                result.push(node);
+                return false;
             }
-        }
-        return null;
-    }
-
-    updateAfterPaste():void {
-    }
-
-    resetSpellCheck():void {
-        // nothing to do. spellcheck doesn't work in prosemirror
-    }
-
-    restoreSpellCheck():void {
-        // nothing to do. spellcheck doesn't work in prosemirror
+            return true;
+        });
+        return result;
     }
 
     getCurrentErrorCount():number {
         return this.decos.find().length;
     }
 
-    ignore(uid:string):void {
-        //TODO change the deco to ignored
-        this.applyDecoUpdateTransaction();
+    private applyDecoUpdateTransaction(){
+        let tr = this.editorView.state.tr;
+        tr.setMeta(PWA_DECO_UPDATE_META,true);
+        //this.decos.map(tr.mapping, this.doc);
+        let newState = this.editorView.state.apply(tr);
+        this.editorView.updateState(newState);
     }
 
-    omit(uid:string):void {
-        let deco = this.getDecoById(uid);
-        if (deco){
-            let tr = this.editorView.state.tr;
-            tr.delete(deco.from,deco.to);
-            this.editorView.state.applyTransaction(tr)
+    private getPositionInDocument(theNode: ProseMirrorModel.Node): number{
+        let pos = 0;
+        let finished = false;
+        this.doc.descendants((node)=>{
+            if (finished){
+                return false;
+            }
+            if (node.isTextblock){
+                if (node.eq(theNode)){
+                    finished=true;
+                }else {
+                    pos += node.textContent.length;
+                }
+                return false;
+            }
+            return true;
+        });
+        return pos;
+    }
+
+    // noinspection JSMethodCanBeStatic
+    private rangeFromTransform(tr: Transaction): DocRange {
+        let from, to;
+        for (let i = 0; i < tr.steps.length; i++) {
+            let step = <any>tr.steps[i],
+                map = step.getMap()
+            let stepFrom = map.map(step.from || step.pos, -1);
+            let stepTo = map.map(step.to || step.pos, 1);
+            from = from ? map.map(from, -1).pos.min(stepFrom) : stepFrom;
+            to = to ? map.map(to, 1).pos.max(stepTo) : stepTo;
         }
-        this.applyDecoUpdateTransaction();
-    }
-
-    accept(uid:string, suggestion:string):void {
-        let deco = this.getDecoById(uid);
-        if (deco){
-            this.decos = this.decos.remove([deco]);
-            let tr = this.editorView.state.tr;
-            //let slice = new Slice();
-            tr.replace(deco.from,deco.to);
-            tr.insertText(suggestion);
-            this.editorView.state.applyTransaction(tr);
-            this.applyDecoUpdateTransaction();
-        }
-    }
-
-    applyThesaurus(replacement:string):void {
-
+        return new DocRange( from, to );
     }
 
     private getDecoById(uuid: string):Decoration{
-        let decos = this.decos.find(null,null,(spec)=>{
-            if ((<DecorationInfo>spec).id==uuid){
-                return true;
-            }
-            return false;
-        });
+        let decos = this.decos.find(null,null,spec=>(<DecorationInfo>spec).id == uuid);
         return decos[0];
     }
+
+    /**
+     * Methods stubbed for awhile
+     */
+    
+    bindEditable():void { }
+
+    unbindEditable():void { }
+
+    bindChangeEvents():void { }
+
+    unbindChangeEvents():void { }
+    
+    updateAfterPaste():void { }
+
+    resetSpellCheck():void { }
+
+    restoreSpellCheck():void { }
+
 }
 
-
-
+//Extending BeyondGrammar namespace
 window["BeyondGrammar"] = window["BeyondGrammar"] || {};
 window["BeyondGrammar"].createBeyondGrammarPluginSpec = createBeyondGrammarPluginSpec;

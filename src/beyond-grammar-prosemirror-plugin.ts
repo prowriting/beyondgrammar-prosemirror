@@ -295,12 +295,9 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     getHighlightInfo(uid:string):HighlightInfo {
         let decos = this.decos;///this.editorView.props.decorations(this.editorView.state);
         if (decos) {
-            let highlights = (<DecorationSet>decos).
-            find(0, this.doc.textContent.length, (spec: { [key: string]: any }) => {
-                return (<DecorationInfo>spec).id == uid;
-            });
-            if (highlights){
-                return <HighlightInfo>highlights[0].spec.highlightInfo;
+            let deco = this.getDecoById(uid);
+            if (deco){
+                return <HighlightInfo>deco.spec.highlightInfo;
             }
         }
         return null;
@@ -401,13 +398,15 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                 return false;
             }
             
+            // each node has an index, we should to count it too
             pos++;
             if ( node.isTextblock ){
                 if (node.eq(theNode)){
-                    //pos--;
                     finished=true;
                 } else {
-                    pos += node.nodeSize - 1;//;//node.textContent.length;
+                    // count add nodeSize instead of textContent.length, as it contains additional `indexes`, 
+                    // but need to remove 1 as it is already included in nodeSize
+                    pos += node.nodeSize - 1;
                 }
                 return false;
             }
@@ -421,7 +420,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         let from, to;
         for (let i = 0; i < tr.steps.length; i++) {
             let step = <any>tr.steps[i],
-                map = step.getMap()
+                map = step.getMap();
             let stepFrom = map.map(step.from || step.pos, -1);
             let stepTo = map.map(step.to || step.pos, 1);
             from = from ? map.map(from, -1).pos.min(stepFrom) : stepFrom;

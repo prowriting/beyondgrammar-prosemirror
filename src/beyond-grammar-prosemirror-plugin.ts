@@ -245,17 +245,32 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
             let start = this.getPositionInDocument(node);
             let length = text.length;
             // find the decos from the start and end of this element and remove them
-            let decosForBlock = this.decos.find(start,start+length);
+            let decosForBlock = this.decos.find(start,start + length);
+            
+            console.info("element", node.textContent);
+            console.info("start", start);
+            console.info("FOUND", decosForBlock.length);
             
             let newDecos = [];
             for(let i = 0; i < tags.length; i++){
                 let tag = tags[i];
+                let tagPos = { from : tag.startPos + start, to : tag.endPos + start + 1 };
                 let existing : Decoration = null;
-                for(let k= 0; k< decosForBlock.length; k++){
-                    if (decosForBlock[k].from===tag.startPos + start && decosForBlock[k].to===tag.endPos + start + 1){
-                        existing=decosForBlock[k];
+                
+                for(let k = 0; k < decosForBlock.length; k++){
+                    let deco = decosForBlock[k];
+                    let spec = <DecorationInfo>deco.spec;
+                    if (deco.from===tagPos.from  && deco.to===tagPos.to){ 
+                        //update tag item with new tag instance
+                        spec.tag=tag;
+
+                        // As I understand we should make step backward, as if we've removed on k, k+1 in next iteration
+                        // skips, as it was shifted
                         decosForBlock.splice(k,1);
-                        (<DecorationInfo>existing.spec).tag=tag;
+                        k--;
+                        
+                        existing=deco;
+                        break;
                     }
                 }
                 
@@ -274,14 +289,14 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                         'data-pwa-dictionary-word' : tag.text//,//textAndMap.text.substr(tag.startPos,tag.endPos-tag.startPos+1)
                     };
                     
-                    let deco = ProseMirrorView.Decoration.inline(tag.startPos + start, tag.endPos + start + 1, attrs, info); 
+                    let deco = ProseMirrorView.Decoration.inline(tagPos.from, tagPos.to, attrs, info); 
 
                     newDecos.push(deco);
                 }
             }
             
-            console.log("for delete", decosForBlock);
-            console.log("for adding", newDecos);
+            console.log("for delete", decosForBlock.concat());
+            console.log("for adding", newDecos.concat());
             
             this.decos = this.decos.remove(decosForBlock).add(this.doc, newDecos);
             

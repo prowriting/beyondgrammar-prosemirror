@@ -2,17 +2,12 @@ import {
     GrammarCheckerSettings, ServiceSettings, BGOptions, IEditableWrapper,
     HighlightInfo, Tag, ThesaurusData
 } from "./interfaces/editable-wrapper";
-import {objectAssign} from "./utils";
 import {PluginSpec, Transaction} from "prosemirror-state";
 import {Decoration, DecorationSet, EditorProps} from "prosemirror-view";
 import * as ProseMirrorView  from 'prosemirror-view';
-import * as ProseMirrorState from 'prosemirror-state';
 import * as ProseMirrorModel from 'prosemirror-model';
 import {uuid} from "./utils/uuid";
 import * as $ from "jquery";
-import {Mark, Slice} from "prosemirror-model";
-import {strictEqual} from "assert";
-//import {DecorationSet} from "prosemirror-view"
 export const CSS_IGNORED = 'pwa-mark-ignored';
 
 export function createBeyondGrammarPluginSpec(pm, element : HTMLElement, bgOptions ?: BGOptions ) {
@@ -212,11 +207,11 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                 
                 // a special transaction just for us to supply our updated decos
                 if (tr.getMeta(PWA_DECO_UPDATE_META)){
-                    //console.info("apply highlights");
-                    return { decos : self.decos };//self.decos;
+                    self.decos = self.decos.map(tr.mapping, self.doc);
+                    return { decos : self.decos };
                 }
                 
-                return { decos : self.decos }; //newState;//tr.docChanged ? this.decos : old
+                return { decos : self.decos };
             }
         }
     }
@@ -244,29 +239,29 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
      */
     
     applyHighlightsSingleBlock(elem:HTMLElement, text:string, tags:Tag[], checkAll:boolean):void {
-        console.log("apply single doc", arguments);
+        
         let node = <ProseMirrorModel.Node><any>elem;
         if (text == node.textContent) {
             let start = this.getPositionInDocument(node);
             let length = text.length;
             // find the decos from the start and end of this element and remove them
             let decosForBlock = this.decos.find(start,start+length);
-            //console.log(decosForBlock);
+            
             let newDecos = [];
             for(let i = 0; i < tags.length; i++){
                 let tag = tags[i];
                 let existing : Decoration = null;
-                for(let k= 0; k< decosForBlock.length-1; k++){
+                for(let k= 0; k< decosForBlock.length; k++){
                     if (decosForBlock[k].from===tag.startPos + start && decosForBlock[k].to===tag.endPos + start + 1){
-                        decosForBlock.splice(i,1);
                         existing=decosForBlock[k];
+                        decosForBlock.splice(k,1);
                         (<DecorationInfo>existing.spec).tag=tag;
                     }
                 }
                 
                 // no existing, so we can say it is new???
                 if (existing===null) {
-                    // check for an existing decoration 
+                    // check for an existing decoration  
                     //
                     let info = new DecorationInfo(tag);
                     let attrs = {
@@ -285,15 +280,17 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                 }
             }
             
-            //console.log("new ", newDecos);
-            this.decos= this.decos.remove(decosForBlock).add(this.doc, newDecos);
+            console.log("for delete", decosForBlock);
+            console.log("for adding", newDecos);
+            
+            this.decos = this.decos.remove(decosForBlock).add(this.doc, newDecos);
             
             this.applyDecoUpdateTransaction();
         }
     }
 
     getHighlightInfo(uid:string):HighlightInfo {
-        let decos = this.decos;///this.editorView.props.decorations(this.editorView.state);
+        let decos = this.decos;
         if (decos) {
             let deco = this.getDecoById(uid);
             if (deco){

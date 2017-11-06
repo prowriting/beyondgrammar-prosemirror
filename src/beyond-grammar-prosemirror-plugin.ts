@@ -298,7 +298,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     
     private createDecorationAttributesFromTag( id:string, tag:Tag , ignored : boolean = false ) {
         return {
-            class: `pwa-mark ${ignored?"pwa-mark-ignored":""}`,
+            class: `pwa-mark${ignored?" pwa-mark-ignored":""}`,
             nodeName : "span",
             "data-pwa-id" : id,
             'data-pwa-category': tag.category.toLowerCase(),
@@ -340,13 +340,12 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     }
 
     omit(uid:string):void {
-        /*let deco = this.getDecoById(uid);
+        let deco = this.getDecoById(uid);
         if (deco){
-            let tr = this.editorView.state.tr;
-            tr.delete(deco.from,deco.to);
-            this.editorView.state.applyTransaction(tr)
+            this.applyDecoUpdateTransaction((tr)=>{
+                tr.delete(deco.from, deco.to);
+            });
         }
-        this.applyDecoUpdateTransaction();*/
     }
 
     accept(uid:string, suggestion:string):void {
@@ -404,10 +403,11 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         return this.decos.find().length;
     }
 
-    private applyDecoUpdateTransaction(){
+    private applyDecoUpdateTransaction(process ?: (tr:Transaction)=>void){
         let tr = this.editorView.state.tr;
         tr.setMeta(PWA_DECO_UPDATE_META,true);
         //this.decos.map(tr.mapping, this.doc);
+        process && process(tr);
         let newState = this.editorView.state.apply( tr );
         this.editorView.updateState(newState);
     }

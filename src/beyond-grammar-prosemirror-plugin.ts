@@ -279,15 +279,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                     // check for an existing decoration  
                     //
                     let info = new DecorationInfo(tag);
-                    let attrs = {
-                        class: 'pwa-mark',
-                        nodeName : "span",
-                        "data-pwa-id" : info.id,
-                        'data-pwa-category': tag.category.toLowerCase(),
-                        'data-pwa-hint': tag.hint,
-                        'data-pwa-suggestions': tag.suggestions.join("~"),
-                        'data-pwa-dictionary-word' : tag.text//,//textAndMap.text.substr(tag.startPos,tag.endPos-tag.startPos+1)
-                    };
+                    let attrs = this.createDecorationAttributesFromTag(info.id, tag);
                     
                     let deco = ProseMirrorView.Decoration.inline(tagPos.from, tagPos.to, attrs, info); 
 
@@ -301,6 +293,18 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
             this.decos = this.decos.remove(decosForBlock).add(this.doc, newDecos);
             
             this.applyDecoUpdateTransaction();
+        }
+    }
+    
+    private createDecorationAttributesFromTag( id:string, tag:Tag , ignored : boolean = false ) {
+        return {
+            class: `pwa-mark ${ignored?"pwa-mark-ignored":""}`,
+            nodeName : "span",
+            "data-pwa-id" : id,
+            'data-pwa-category': tag.category.toLowerCase(),
+            'data-pwa-hint': tag.hint,
+            'data-pwa-suggestions': tag.suggestions.join("~"),
+            'data-pwa-dictionary-word' : tag.text//,//textAndMap.text.substr(tag.startPos,tag.endPos-tag.startPos+1)
         }
     }
 
@@ -325,8 +329,14 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     }
 
     ignore(uid:string):void {
-        //TODO change the deco to ignored
-        //this.applyDecoUpdateTransaction();
+        let deco = this.getDecoById(uid);
+        
+        let spec = <DecorationInfo>deco.spec;
+        let new_deco = ProseMirrorView.Decoration.inline(deco.from, deco.to, this.createDecorationAttributesFromTag(spec.id, spec.tag, true), spec);
+        
+        this.decos = this.decos.remove([deco]).add(this.doc, [new_deco]);
+        
+        this.applyDecoUpdateTransaction();
     }
 
     omit(uid:string):void {

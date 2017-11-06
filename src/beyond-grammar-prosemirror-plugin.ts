@@ -342,9 +342,16 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     omit(uid:string):void {
         let deco = this.getDecoById(uid);
         if (deco){
-            this.applyDecoUpdateTransaction((tr)=>{
-                tr.delete(deco.from, deco.to);
-            });
+            //creating new transaction with delete operation
+            let tr = this.editorView.state.tr;
+            tr.delete(deco.from, deco.to);
+            
+            //remove non-actual deco
+            this.decos = this.decos.remove([deco]);
+            
+            //applying transaction and updating view
+            let newState = this.editorView.state.apply(tr);
+            this.editorView.updateState(newState);
         }
     }
 

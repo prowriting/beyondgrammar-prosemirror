@@ -175,10 +175,9 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                 return {decos : self.decos};
             },
             
-            apply( tr : Transaction, value, old, newState ) {
+            apply( tr : Transaction, pluginState, old, newState ) {
                 
-                console.log("apply value=", value);
-                console.log(newState);
+                console.log("apply value=", pluginState);
                 
                 //storing new doc, as it was changed after transactions
                 self.doc = newState.doc;
@@ -186,53 +185,38 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                 if (tr.docChanged) {
                     // I think we need to update our decos using the mapping of
                     // the transaction. This should update all the from and tos
-                    //self.decos.map(tr.mapping);
-                    self.decos.map(tr.mapping, self.doc);
-                    // get the range that is affected by the transformation
+                    
+                    //storing new decos after mapping changes
+                    self.decos = self.decos.map(tr.mapping, self.doc);
 
-                    //self.decos.value.map(tr.mapping, self.doc);
-                    
-                    
+                    // get the range that is affected by the transformation
                     let range = self.rangeFromTransform(tr);
-                    //console.log(range);
-                    // update all the blocks that have been affected by the transformation
-                    //console.log(self.doc);
                     
+                    // update all the blocks that have been affected by the transformation
                     self.doc.nodesBetween(range.from, range.to, (elem) => {
                         if (elem.isTextblock) {
                             if (self.onBlockChanged) {
                                 console.info("onBlockChanged", elem);
                                 self.onBlockChanged(<any>elem);
-                                return false;
                             }
-
+                            return false;
                         }
                         return true;
                     });
-
-                    //
-                    
-                    //console.log((tr)); 
-                     
-                    //self.onBlockChanged( <any>tr.selection.$head.parent );
-
-                    //console.log(self.onCheckRequired);
                     
                     // set off a check
                     if (self.onCheckRequired) {
                         self.onCheckRequired();
                     }
                 }
+                
                 // a special transaction just for us to supply our updated decos
                 if (tr.getMeta(PWA_DECO_UPDATE_META)){
-                    //this.spec.decos.map(tr.mapping, self.doc);
-                    //this.spec.decos.map(tr.mapping, self.doc); 
-                    console.info("apply highlights");
+                    //console.info("apply highlights");
                     return { decos : self.decos };//self.decos;
                 }
-                //value.apply(tr);
-                //console.info(value == this.decos);
-                return {decos : self.decos};//newState;//tr.docChanged ? this.decos : old
+                
+                return { decos : self.decos }; //newState;//tr.docChanged ? this.decos : old
             }
         }
     }
@@ -260,12 +244,12 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
      */
     
     applyHighlightsSingleBlock(elem:HTMLElement, text:string, tags:Tag[], checkAll:boolean):void {
-        //console.log("apply")
+        console.log("apply single doc", arguments);
         let node = <ProseMirrorModel.Node><any>elem;
         if (text == node.textContent) {
             let start = this.getPositionInDocument(node);
             let length = text.length;
-            // find the decos from the start and end of this element an remove them
+            // find the decos from the start and end of this element and remove them
             let decosForBlock = this.decos.find(start,start+length);
             //console.log(decosForBlock);
             let newDecos = [];
@@ -273,14 +257,16 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                 let tag = tags[i];
                 let existing : Decoration = null;
                 for(let k= 0; k< decosForBlock.length-1; k++){
-                    if (decosForBlock[k].from===tag.startPos && decosForBlock[k].to===tag.endPos){
+                    if (decosForBlock[k].from===tag.startPos + start && decosForBlock[k].to===tag.endPos + start + 1){
                         decosForBlock.splice(i,1);
                         existing=decosForBlock[k];
                         (<DecorationInfo>existing.spec).tag=tag;
                     }
                 }
+                
+                // no existing, so we can say it is new???
                 if (existing===null) {
-                    // check for an existing decoration
+                    // check for an existing decoration 
                     //
                     let info = new DecorationInfo(tag);
                     let attrs = {
@@ -293,7 +279,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                         'data-pwa-dictionary-word' : tag.text//,//textAndMap.text.substr(tag.startPos,tag.endPos-tag.startPos+1)
                     };
                     
-                    let deco = ProseMirrorView.Decoration.inline(tag.startPos, tag.endPos, attrs, info);
+                    let deco = ProseMirrorView.Decoration.inline(tag.startPos + start, tag.endPos + start + 1, attrs, info); 
 
                     newDecos.push(deco);
                 }
@@ -403,7 +389,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         let tr = this.editorView.state.tr;
         tr.setMeta(PWA_DECO_UPDATE_META,true);
         //this.decos.map(tr.mapping, this.doc);
-        let newState = this.editorView.state.apply(tr);
+        let newState = this.editorView.state.apply( tr );
         this.editorView.updateState(newState);
     }
 
@@ -414,11 +400,14 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
             if (finished){
                 return false;
             }
-            if (node.isTextblock){
+            
+            pos++;
+            if ( node.isTextblock ){
                 if (node.eq(theNode)){
+                    //pos--;
                     finished=true;
-                }else {
-                    pos += node.textContent.length;
+                } else {
+                    pos += node.nodeSize - 1;//;//node.textContent.length;
                 }
                 return false;
             }

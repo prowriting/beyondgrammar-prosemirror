@@ -2,6 +2,7 @@
 //[pavel] Object assigning was stolen from :
 //https://github.com/sindresorhus/object-assign/blob/master/index.js
 import {Tag} from "./interfaces/editable-wrapper";
+import {HighlightSpec} from "./highlight-spec";
 
 export function objectAssign(target, source, ...attr) {
     let getOwnPropertySymbols = Object['getOwnPropertySymbols'];
@@ -42,15 +43,15 @@ function toObject(val) {
     return Object(val);
 }
 
-export function createDecorationAttributesFromTag( id:string, tag:Tag , ignored : boolean = false ) {
+export function createDecorationAttributesFromSpec(spec : HighlightSpec) {
     // noinspection ReservedWordAsName
     return {
-        class: `pwa-mark${ignored?" pwa-mark-ignored":""}`,
+        class: `pwa-mark${spec.ignored?" pwa-mark-ignored":""}`,
         nodeName : "span",
-        "data-pwa-id" : id,
-        'data-pwa-category': tag.category.toLowerCase(),
-        'data-pwa-hint': tag.hint,
-        'data-pwa-suggestions': tag.suggestions.join("~"),
-        'data-pwa-dictionary-word' : tag.text
+        "data-pwa-id" : spec.id,
+        'data-pwa-category': spec.tag.category.toLowerCase(),
+        'data-pwa-hint': spec.tag.hint,
+        'data-pwa-suggestions': spec.tag.suggestions.join("~"),
+        'data-pwa-dictionary-word' : spec.tag.text
     }
 }

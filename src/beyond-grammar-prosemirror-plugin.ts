@@ -9,7 +9,7 @@ import * as ProseMirrorModel from 'prosemirror-model';
 import {uuid} from "./utils/uuid";
 import * as $ from "jquery";
 import {HighlightSpec} from "./highlight-spec";
-import {createDecorationAttributesFromTag} from "./utils";
+import {createDecorationAttributesFromSpec} from "./utils";
 export const CSS_IGNORED = 'pwa-mark-ignored';
 
 export function createBeyondGrammarPluginSpec(pm, element : HTMLElement, bgOptions ?: BGOptions ) {
@@ -261,10 +261,10 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                     // check for an existing decoration  
                     //
                     let word = node.textContent.substring(tag.startPos, tag.endPos+1);
-                    let info = new HighlightSpec(tag, word);
-                    let attributes = createDecorationAttributesFromTag(info.id, tag);
+                    let spec = new HighlightSpec(tag, word);
+                    let attributes = createDecorationAttributesFromSpec(spec);
                     
-                    let deco = ProseMirrorView.Decoration.inline(tagPos.from, tagPos.to, attributes, info); 
+                    let deco = ProseMirrorView.Decoration.inline(tagPos.from, tagPos.to, attributes, spec); 
 
                     newDecos.push(deco);
                 }
@@ -293,12 +293,12 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     }
 
     clearMarks(skipIgnored:boolean):void {
-        if (!skipIgnored) {
-            this.decos = DecorationSet.empty;
-        }else {
+        if (skipIgnored) {
             //find not ignored decos and remove only it
             let notIgnoredDecos = this.decos.find(undefined, undefined, (spec:HighlightSpec)=>!spec.ignored);
             this.decos = this.decos.remove(notIgnoredDecos);
+        }else {
+            this.decos = DecorationSet.empty;
         }
         this.applyDecoUpdateTransaction();
     }
@@ -306,10 +306,11 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     ignore(uid:string):void {
         let deco = this.getDecoById(uid);
         
+        //getting old spec, marking it as ignored and creating from it new ignored deco
         let spec = <HighlightSpec>deco.spec;
         spec.ignored = true;
         
-        let new_deco = ProseMirrorView.Decoration.inline(deco.from, deco.to, createDecorationAttributesFromTag(spec.id, spec.tag, true), spec);
+        let new_deco = ProseMirrorView.Decoration.inline(deco.from, deco.to, createDecorationAttributesFromSpec(spec), spec);
         
         this.decos = this.decos.remove([deco]).add(this.doc, [new_deco]);
         

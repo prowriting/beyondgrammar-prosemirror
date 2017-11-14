@@ -8,6 +8,8 @@ import * as ProseMirrorView  from 'prosemirror-view';
 import * as ProseMirrorModel from 'prosemirror-model';
 import {uuid} from "./utils/uuid";
 import * as $ from "jquery";
+import {HighlightSpec} from "./highlight-spec";
+import {createDecorationAttributesFromTag} from "./utils";
 export const CSS_IGNORED = 'pwa-mark-ignored';
 
 export function createBeyondGrammarPluginSpec(pm, element : HTMLElement, bgOptions ?: BGOptions ) {
@@ -60,25 +62,6 @@ export function createBeyondGrammarPluginSpec(pm, element : HTMLElement, bgOptio
 }*/
 
 const PWA_DECO_UPDATE_META = 'pwa-deco-update';
-
-class DecorationInfo{
-    id: string;
-    highlightInfo: HighlightInfo;
-    tag: Tag;
-    inclusiveStart: boolean = true;
-    inclusiveEnd: boolean = true;
-
-    constructor(tag: Tag){
-        this.tag = tag;
-        this.highlightInfo = new HighlightInfo();
-        this.highlightInfo.category=tag.category;
-        this.highlightInfo.hint=tag.hint;
-        this.highlightInfo.suggestions=tag.suggestions;
-        this.highlightInfo.word = "//TODO"; //TODO  //tag.text.substring(tag.startPos, tag.endPos);
-
-        this.id = 'pwa-' + uuid();
-    }
-}
 
 class DocRange {
     constructor(from: number, to: number){
@@ -259,15 +242,14 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                 
                 for(let k = 0; k < decosForBlock.length; k++){
                     let deco = decosForBlock[k];
-                    let spec = <DecorationInfo>deco.spec;
+                    let spec = <HighlightSpec>deco.spec;
                     if (deco.from===tagPos.from  && deco.to===tagPos.to){ 
                         //update tag item with new tag instance
                         spec.tag=tag;
 
                         // As I understand we should make step backward, as if we've removed on k, k+1 in next iteration
                         // skips, as it was shifted
-                        decosForBlock.splice(k,1);
-                        k--;
+                        decosForBlock.splice(k--,1);
                         
                         existing=deco;
                         break;
@@ -278,10 +260,11 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                 if (existing===null) {
                     // check for an existing decoration  
                     //
-                    let info = new DecorationInfo(tag);
-                    let attrs = this.createDecorationAttributesFromTag(info.id, tag);
+                    let word = node.textContent.substring(tag.startPos, tag.endPos+1);
+                    let info = new HighlightSpec(tag, word);
+                    let attributes = createDecorationAttributesFromTag(info.id, tag);
                     
-                    let deco = ProseMirrorView.Decoration.inline(tagPos.from, tagPos.to, attrs, info); 
+                    let deco = ProseMirrorView.Decoration.inline(tagPos.from, tagPos.to, attributes, info); 
 
                     newDecos.push(deco);
                 }
@@ -296,17 +279,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         }
     }
     
-    private createDecorationAttributesFromTag( id:string, tag:Tag , ignored : boolean = false ) {
-        return {
-            class: `pwa-mark${ignored?" pwa-mark-ignored":""}`,
-            nodeName : "span",
-            "data-pwa-id" : id,
-            'data-pwa-category': tag.category.toLowerCase(),
-            'data-pwa-hint': tag.hint,
-            'data-pwa-suggestions': tag.suggestions.join("~"),
-            'data-pwa-dictionary-word' : tag.text//,//textAndMap.text.substr(tag.startPos,tag.endPos-tag.startPos+1)
-        }
-    }
+    //private 
 
     getHighlightInfo(uid:string):HighlightInfo {
         let decos = this.decos;
@@ -323,7 +296,9 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         if (!skipIgnored) {
             this.decos = DecorationSet.empty;
         }else {
-            // TODO skip ignore depends on the implementation of ignore
+            //find not ignored decos and remove only it
+            let notIgnoredDecos = this.decos.find(undefined, undefined, (spec:HighlightSpec)=>!spec.ignored);
+            this.decos = this.decos.remove(notIgnoredDecos);
         }
         this.applyDecoUpdateTransaction();
     }
@@ -331,8 +306,10 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     ignore(uid:string):void {
         let deco = this.getDecoById(uid);
         
-        let spec = <DecorationInfo>deco.spec;
-        let new_deco = ProseMirrorView.Decoration.inline(deco.from, deco.to, this.createDecorationAttributesFromTag(spec.id, spec.tag, true), spec);
+        let spec = <HighlightSpec>deco.spec;
+        spec.ignored = true;
+        
+        let new_deco = ProseMirrorView.Decoration.inline(deco.from, deco.to, createDecorationAttributesFromTag(spec.id, spec.tag, true), spec);
         
         this.decos = this.decos.remove([deco]).add(this.doc, [new_deco]);
         
@@ -356,25 +333,25 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     }
 
     accept(uid:string, suggestion:string):void {
-        /*let deco = this.getDecoById(uid);
+        let deco = this.getDecoById(uid);
         if (deco){
             this.decos = this.decos.remove([deco]);
             let tr = this.editorView.state.tr;
             //let slice = new Slice();
-            tr.replace(deco.from,deco.to);
+            tr.replace(deco.from, deco.to);
             tr.insertText(suggestion);
             this.editorView.state.applyTransaction(tr);
             this.applyDecoUpdateTransaction();
-        }*/
+        }
     }
 
     onAddToDictionary(uid:string):void {
         let deco = this.getDecoById(uid);
         if (deco) {
-            let specToAdd: DecorationInfo = <DecorationInfo>deco.spec;
+            let specToAdd: HighlightSpec = <HighlightSpec>deco.spec;
             let decosToRemove = this.decos.find(null, null, (spec) => {
-                if ((<DecorationInfo>spec).tag.category == specToAdd.tag.category){
-                    if ((<DecorationInfo>spec).highlightInfo.word==specToAdd.highlightInfo.word){
+                if ((<HighlightSpec>spec).tag.category == specToAdd.tag.category){
+                    if ((<HighlightSpec>spec).highlightInfo.word==specToAdd.highlightInfo.word){
                         return true;
                     }
                 }
@@ -459,7 +436,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     }
 
     private getDecoById(uuid: string):Decoration{
-        let decos = this.decos.find(null,null,spec=>(<DecorationInfo>spec).id == uuid);
+        let decos = this.decos.find(null,null,spec=>(<HighlightSpec>spec).id == uuid);
         return decos[0];
     }
 

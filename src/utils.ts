@@ -1,6 +1,8 @@
 
 //[pavel] Object assigning was stolen from :
 //https://github.com/sindresorhus/object-assign/blob/master/index.js
+import {Tag} from "./interfaces/editable-wrapper";
+
 export function objectAssign(target, source, ...attr) {
     let getOwnPropertySymbols = Object['getOwnPropertySymbols'];
     let hasOwnProperty = Object.prototype.hasOwnProperty;
@@ -38,4 +40,17 @@ function toObject(val) {
     }
 
     return Object(val);
+}
+
+export function createDecorationAttributesFromTag( id:string, tag:Tag , ignored : boolean = false ) {
+    // noinspection ReservedWordAsName
+    return {
+        class: `pwa-mark${ignored?" pwa-mark-ignored":""}`,
+        nodeName : "span",
+        "data-pwa-id" : id,
+        'data-pwa-category': tag.category.toLowerCase(),
+        'data-pwa-hint': tag.hint,
+        'data-pwa-suggestions': tag.suggestions.join("~"),
+        'data-pwa-dictionary-word' : tag.text
+    }
 }

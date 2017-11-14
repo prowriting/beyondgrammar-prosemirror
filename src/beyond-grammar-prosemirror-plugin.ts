@@ -10,6 +10,7 @@ import {uuid} from "./utils/uuid";
 import * as $ from "jquery";
 import {HighlightSpec} from "./highlight-spec";
 import {createDecorationAttributesFromSpec} from "./utils";
+import {Slice} from "prosemirror-model";
 export const CSS_IGNORED = 'pwa-mark-ignored';
 
 export function createBeyondGrammarPluginSpec(pm, element : HTMLElement, bgOptions ?: BGOptions ) {
@@ -155,7 +156,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
             
             apply( tr : Transaction, pluginState, old, newState ) {
                 
-                console.log("apply value=", pluginState);
+                //console.log("apply value=", pluginState);
                 
                 //storing new doc, as it was changed after transactions
                 self.doc = newState.doc;
@@ -174,7 +175,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                     self.doc.nodesBetween(range.from, range.to, (elem) => {
                         if (elem.isTextblock) {
                             if (self.onBlockChanged) {
-                                console.info("onBlockChanged", elem);
+                                //console.info("onBlockChanged", elem);
                                 self.onBlockChanged(<any>elem);
                             }
                             return false;
@@ -230,9 +231,9 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
             // find the decos from the start and end of this element and remove them
             let decosForBlock = this.decos.find(start,start + length);
             
-            console.info("element", node.textContent);
-            console.info("start", start);
-            console.info("FOUND", decosForBlock.length);
+            //console.info("element", node.textContent);
+            //console.info("start", start);
+            //console.info("FOUND", decosForBlock.length);
             
             let newDecos = [];
             for(let i = 0; i < tags.length; i++){
@@ -336,13 +337,14 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     accept(uid:string, suggestion:string):void {
         let deco = this.getDecoById(uid);
         if (deco){
-            this.decos = this.decos.remove([deco]);
             let tr = this.editorView.state.tr;
-            //let slice = new Slice();
-            tr.replace(deco.from, deco.to);
-            tr.insertText(suggestion);
-            this.editorView.state.applyTransaction(tr);
-            this.applyDecoUpdateTransaction();
+            this.decos = this.decos.remove([deco]);
+            tr
+                .replace(deco.from, deco.to)
+                .insertText(suggestion, deco.from);
+
+            let newState = this.editorView.state.apply(tr);
+            this.editorView.updateState(newState);
         }
     }
 
@@ -391,7 +393,6 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     private applyDecoUpdateTransaction(process ?: (tr:Transaction)=>void){
         let tr = this.editorView.state.tr;
         tr.setMeta(PWA_DECO_UPDATE_META,true);
-        //this.decos.map(tr.mapping, this.doc);
         process && process(tr);
         let newState = this.editorView.state.apply( tr );
         this.editorView.updateState(newState);
@@ -425,14 +426,39 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     // noinspection JSMethodCanBeStatic
     private rangeFromTransform(tr: Transaction): DocRange {
         let from, to;
+        //console.group("rangeFromTransform");
         for (let i = 0; i < tr.steps.length; i++) {
-            let step = <any>tr.steps[i],
-                map = step.getMap();
-            let stepFrom = map.map(step.from || step.pos, -1);
-            let stepTo = map.map(step.to || step.pos, 1);
-            from = from ? map.map(from, -1).pos.min(stepFrom) : stepFrom;
-            to = to ? map.map(to, 1).pos.max(stepTo) : stepTo;
+            let step = <any>tr.steps[i];
+            
+            let stepMapping = step.getMap(); 
+            
+            //new position after step
+            let stepFrom = stepMapping.map(step.from || step.pos, -1);
+            let stepTo = stepMapping.map(step.to || step.pos, 1);
+            
+            //console.log(step);
+            //console.log("=>", step.from, step.pos);
+            //console.log("=>", step.to, step.pos);
+            //console.log("steps", stepFrom, stepTo);
+            
+            if( from ) {
+                //console.log("from", stepMapping.map(from, -1), stepFrom);
+                from = Math.min( stepMapping.map( from, -1 ), stepFrom );
+            } else {
+                from = stepFrom;
+                //console.log("from", stepFrom)
+            }
+            
+            if( to ) {
+                //console.log("to", stepMapping.map(to, 1), stepTo);
+                to = Math.max( stepMapping.map(to, 1), stepTo );    
+            } else {
+                to = stepTo;
+                //console.log("to", stepFrom)
+            }
         }
+        console.groupEnd();
+        
         return new DocRange( from, to );
     }
 

@@ -3,7 +3,7 @@ import {
     HighlightInfo, Tag, ThesaurusData
 } from "./interfaces/editable-wrapper";
 import {PluginSpec, Transaction} from "prosemirror-state";
-import {Decoration, DecorationSet, EditorProps} from "prosemirror-view";
+import {Decoration, DecorationSet, EditorProps, EditorView} from "prosemirror-view";
 import * as ProseMirrorView  from 'prosemirror-view';
 import * as ProseMirrorModel from 'prosemirror-model';
 import {uuid} from "./utils/uuid";
@@ -11,6 +11,8 @@ import * as $ from "jquery";
 import {HighlightSpec} from "./highlight-spec";
 import {createDecorationAttributesFromSpec} from "./utils";
 import {Slice} from "prosemirror-model";
+import {version} from "punycode";
+import {getWindow} from "./utils/dom";
 export const CSS_IGNORED = 'pwa-mark-ignored';
 
 export function createBeyondGrammarPluginSpec(pm, element : HTMLElement, bgOptions ?: BGOptions ) {
@@ -92,6 +94,9 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     private _props : EditorProps;
     private decos : DecorationSet;
     private doc : ProseMirrorModel.Node;
+
+    protected activeSelectionRange_ : RangyRange;
+    protected lastThesaurusData_ : ThesaurusData;
     
     constructor( private $element_ : JQuery, private serviceSettings : ServiceSettings, private grammarCheckerSettings : GrammarCheckerSettings){
         this.initState();
@@ -201,9 +206,31 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     }
     
     initProps() {
+        let self = this;
         this._props = {
-            decorations(state) { return this.spec.decos }
+            decorations(state) { return this.spec.decos },
+            handleDoubleClick(view:EditorView, n : number, p:MouseEvent){
+                //console.log(n);
+                
+                //TODO check is bound
+                setTimeout(()=>{
+                    self.processShowContextualThesaurus(null);
+                }, 10);
+                
+                return false;
+            }
         }
+    }
+
+    protected processShowContextualThesaurus($target : JQuery ) : boolean{
+        if( !this.onShowThesaurus ) return false;
+
+        let thesaurusData = window["BeyondGrammar"].getThesaurusData(getWindow(this.$element_[0]), this.$element_, $target, true);
+
+        //this.activeSelectionRange_ = thesaurusData.wordRange;
+        this.lastThesaurusData_ = thesaurusData;
+        
+        return this.onShowThesaurus( thesaurusData, getWindow(this.$element_[0]))
     }
     
     get state(): any {
@@ -230,10 +257,6 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
             let length = text.length;
             // find the decos from the start and end of this element and remove them
             let decosForBlock = this.decos.find(start,start + length);
-            
-            //console.info("element", node.textContent);
-            //console.info("start", start);
-            //console.info("FOUND", decosForBlock.length);
             
             let newDecos = [];
             for(let i = 0; i < tags.length; i++){
@@ -270,9 +293,6 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                     newDecos.push(deco);
                 }
             }
-            
-            console.log("for delete", decosForBlock.concat());
-            console.log("for adding", newDecos.concat());
             
             this.decos = this.decos.remove(decosForBlock).add(this.doc, newDecos);
             
@@ -352,21 +372,19 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         let deco = this.getDecoById(uid);
         if (deco) {
             let specToAdd: HighlightSpec = <HighlightSpec>deco.spec;
-            let decosToRemove = this.decos.find(null, null, (spec) => {
-                if ((<HighlightSpec>spec).tag.category == specToAdd.tag.category){
-                    if ((<HighlightSpec>spec).highlightInfo.word==specToAdd.highlightInfo.word){
-                        return true;
-                    }
-                }
-                return false;
+            let decosToRemove = this.decos.find(null, null, (spec : HighlightSpec) => {
+                return spec.tag.category == specToAdd.tag.category && spec.highlightInfo.word == specToAdd.highlightInfo.word;
             });
-            this.decos=this.decos.remove(decosToRemove);
+            this.decos = this.decos.remove(decosToRemove);
             this.applyDecoUpdateTransaction();
         }
     }
 
     applyThesaurus(replacement:string):void {
-        //TODO
+        let tr = this.editorView.state.tr;
+        tr.insertText(replacement, tr.selection.from, tr.selection.from + this.lastThesaurusData_.word.length);
+        let newState = this.editorView.state.apply(tr);
+        this.editorView.updateState(newState);        
     }
 
     getText(blockElement:HTMLElement):string {

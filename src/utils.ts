@@ -46,7 +46,7 @@ function toObject(val) {
 export function createDecorationAttributesFromSpec(spec : HighlightSpec) {
     // noinspection ReservedWordAsName
     return {
-        class: `pwa-mark${spec.ignored?" pwa-mark-ignored":""}`,
+        class: `pwa-mark pwa-mark-done${spec.ignored?" pwa-mark-ignored":""}`,
         nodeName : "span",
         "data-pwa-id" : spec.id,
         'data-pwa-category': spec.tag.category.toLowerCase(),

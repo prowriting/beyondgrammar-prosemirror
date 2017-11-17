@@ -1,14 +1,66 @@
 ///<reference path="../../rangy.d.ts"/>
 
+import {ILanguage} from "./ILanguage";
+import {IGrammarCheckerSettings} from "./IGrammarCheckerSettings";
+import {IServiceSettings} from "./IServiceSettings";
+
+
 export interface BGOptions {
-    service ?: ServiceSettings;
-    grammar?: GrammarCheckerSettings;
+    service ?: IServiceSettings;
+    grammar?: IGrammarCheckerSettings;
 }
 
+export interface GrammarCheckerConstuctor{
+    new (element: HTMLElement, serviceSettings : IServiceSettings, grammarCheckerSettings?: IGrammarCheckerSettings, editorWrapper?: IEditableWrapper):IGrammarChecker;
+}
+
+export interface BeyondGrammarModule{
+    GrammarChecker : GrammarCheckerConstuctor;
+    getThesaurusData(contextWindow : Window, $container : JQuery, $target:JQuery, isContextual : boolean ) : ThesaurusData;
+    loadPwaMarkStyles(win : Window);
+}
 
 //Interfaces from BeyondGrammar Core : 
 
-export class GrammarCheckerSettings {
+
+export class DictionaryEntry {
+    Id : string;
+    Word : string;
+    Replacement ?: string;
+}
+
+export interface IGrammarCheckerConstructor{
+    new ( element : HTMLElement, serviceSettings : IServiceSettings, grammarCheckerSettings ?: IGrammarCheckerSettings ): IGrammarChecker;
+}
+
+export interface IGrammarChecker {
+    init() : Promise<void>;
+
+    activate();
+    deactivate();
+    isActivated();
+
+    checkAll(forceClearCache ?: boolean) : void;
+
+    clearMarks(): void;
+    reloadMarks(): void;
+
+    setSettings(settings: IGrammarCheckerSettings): void;
+    getSettings(): IGrammarCheckerSettings;
+
+    getAvailableLanguages(): ILanguage[];
+    getApplicationName() : string;
+    getApplicationVersion() : string;
+    getVersionedApplicationName() : string;
+    getCopyrightUrl() : string;
+    getBrandImageUrl() : string;
+
+    addToDictionary( word : string, replacement ?: string ) : Promise<DictionaryEntry[]>;
+    removeFromDictionary( id : string ) : Promise<any>;
+    getDictionaryEntries() : Promise<DictionaryEntry[]>;
+}
+
+/*export class GrammarCheckerSettings {
     languageFilter ?: string[];
     languageIsoCode ?: string;
     checkGrammar ?: boolean;
@@ -18,14 +70,14 @@ export class GrammarCheckerSettings {
     showContextThesaurus ?: boolean;
     checkerIsEnabled ?: boolean;
     disableDictionary ?:boolean;
-}
+}*/
 
-export interface ServiceSettings{
+/*export interface ServiceSettings{
     sourcePath?: string;
     serviceUrl ?: string;
     userId ?: string;
     apiKey ?: string;
-}
+}*/
 
 export class Tag{
     startPos : number;

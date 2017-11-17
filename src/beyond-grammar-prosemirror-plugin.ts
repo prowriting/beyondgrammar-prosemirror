@@ -1,70 +1,46 @@
 import {
-    GrammarCheckerSettings, ServiceSettings, BGOptions, IEditableWrapper,
-    HighlightInfo, Tag, ThesaurusData
+    BGOptions, IEditableWrapper,
+    HighlightInfo, Tag, ThesaurusData, BeyondGrammarModule
 } from "./interfaces/editable-wrapper";
 import {PluginSpec, Transaction} from "prosemirror-state";
 import {Decoration, DecorationSet, EditorProps, EditorView} from "prosemirror-view";
 import * as ProseMirrorView  from 'prosemirror-view';
 import * as ProseMirrorModel from 'prosemirror-model';
-import {uuid} from "./utils/uuid";
 import * as $ from "jquery";
 import {HighlightSpec} from "./highlight-spec";
-import {createDecorationAttributesFromSpec} from "./utils";
-import {Slice} from "prosemirror-model";
-import {version} from "punycode";
-import {getWindow} from "./utils/dom";
+import {createDecorationAttributesFromSpec, objectAssign} from "./utils";
+import {getWindow, loadBeyondGrammarModule} from "./utils/dom";
+
 export const CSS_IGNORED = 'pwa-mark-ignored';
+const PWA_DECO_UPDATE_META = 'pwa-deco-update';
 
 export function createBeyondGrammarPluginSpec(pm, element : HTMLElement, bgOptions ?: BGOptions ) {
-    //let scriptLoader = 
-    // sourcePath specified in first argument, as we want to seal plugin on concrete version of BG core
-    /*bgOptions = <BGOptions>objectAssign({ service : { sourcePath: "//localhost:8080/bundle.js" }, }, bgOptions , {
+    const DEFAULT_SETTINGS : BGOptions = {
+        grammar : {},
         service : {
-            serviceUrl : '//rtg.prowritingaid.com',
-        },
-        
-        grammar : {}
-    });*/
-    //TODO return restoring/defaulting config
-
+            sourcePath : "//prowriting.azureedge.net/beyondgrammar/1.0.176/dist/bundle.js"
+        }
+    };
+    
+    bgOptions.grammar = objectAssign( DEFAULT_SETTINGS.grammar, bgOptions.grammar);
+    bgOptions.service = objectAssign( DEFAULT_SETTINGS.service, bgOptions.service);
+    
     let $element = $(element);
     let $contentEditable = $element.find("[contenteditable]");
-    let plugin = new BeyondGrammarProseMirrorPlugin($element, bgOptions.service, bgOptions.grammar);
-
-    window["BeyondGrammar"].loadPwaMarkStyles(window);
-
-    let grammarChecker = new window["BeyondGrammar"].GrammarChecker($contentEditable[0], bgOptions.service, bgOptions.grammar, plugin);
-    grammarChecker.init().then(()=>{
-        grammarChecker.activate();
-        plugin.activate();
+    let plugin = new BeyondGrammarProseMirrorPlugin($element);
+    
+    loadBeyondGrammarModule(bgOptions.service.sourcePath, (bgModule : BeyondGrammarModule)=>{
+        bgModule.loadPwaMarkStyles(window);
+        
+        let grammarChecker = new bgModule.GrammarChecker($contentEditable[0], bgOptions.service, bgOptions.grammar, plugin);
+        grammarChecker.init().then(()=>{
+           grammarChecker.activate();
+           plugin.bgModule  = bgModule;
+        });
     });
     
-    
-    return plugin;//new BeyondGrammarProseMirrorPlugin(pm, bgOptions.serviceSettings, bgOptions.grammarSettings);
-
-    /*let script = document.createElement("script");
-    script.src = "bundle.js?r=" + Math.ceil(Math.random() * 1e6);
-    (document.head || document.body).appendChild(script);
-
-    let r = false;
-    script.onload = script["onreadystatechange"] = function(){
-        if ( !r && (!this.readyState || this.readyState == 'complete') )
-        {
-            r = true;
-            
-            let GrammarChecker = window["BeyondGrammar"].GrammarChecker;
-            let grammarChecker = new GrammarChecker(bgOptions.serviceSettings, bgOptions.grammarSettings);
-            
-            onLoad && onLoad( new BeyondGrammarProsemirrorPlugin(bgOptions.serviceSettings, bgOptions.grammarSettings) );
-        }
-    }*/
+    return plugin;
 }
-
-/*export function createPlugin(bgOptions ?: BGOptions){
-    
-}*/
-
-const PWA_DECO_UPDATE_META = 'pwa-deco-update';
 
 class DocRange {
     constructor(from: number, to: number){
@@ -78,27 +54,27 @@ class DocRange {
 
 //idea to combine in one class two implementations: bg wrapper + pm plugin, so we can work in one scope
 export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrapper{
+    //Outside set data
+    bgModule:BeyondGrammarModule;
+    editorView: ProseMirrorView.EditorView;
+    
+    //Wrapper Callbacks 
     onShowThesaurus: (thesaurusData: ThesaurusData, contextWindow: Window) => boolean;
     onBlockChanged: (block: HTMLElement) => void;
     onPopupClose: () => void;
     onPopupDeferClose: () => void;
     onCheckRequired: () => void;
     onShowPopup: (uid: string, elem: Element) => void;
-    //TODO
-    //Async stuff
-    
-    //public init()
 
-    public editorView: ProseMirrorView.EditorView;
+    
+    private isBound : boolean = false;
     private _state : any;
     private _props : EditorProps;
     private decos : DecorationSet;
     private doc : ProseMirrorModel.Node;
-
-    protected activeSelectionRange_ : RangyRange;
-    protected lastThesaurusData_ : ThesaurusData;
+    private lastThesaurusData_ : ThesaurusData;
     
-    constructor( private $element_ : JQuery, private serviceSettings : ServiceSettings, private grammarCheckerSettings : GrammarCheckerSettings){
+    constructor( private $element_ : JQuery ){
         this.initState();
         this.initProps();
         this.bindEditableEvents();
@@ -210,9 +186,10 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         this._props = {
             decorations(state) { return this.spec.decos },
             handleDoubleClick(view:EditorView, n : number, p:MouseEvent){
-                //console.log(n);
+                if( !self.isBound ){
+                    return true;
+                }
                 
-                //TODO check is bound
                 setTimeout(()=>{
                     self.processShowContextualThesaurus(null);
                 }, 10);
@@ -225,9 +202,8 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     protected processShowContextualThesaurus($target : JQuery ) : boolean{
         if( !this.onShowThesaurus ) return false;
 
-        let thesaurusData = window["BeyondGrammar"].getThesaurusData(getWindow(this.$element_[0]), this.$element_, $target, true);
+        let thesaurusData = this.bgModule.getThesaurusData(getWindow(this.$element_[0]), this.$element_, $target, true);
 
-        //this.activeSelectionRange_ = thesaurusData.wordRange;
         this.lastThesaurusData_ = thesaurusData;
         
         return this.onShowThesaurus( thesaurusData, getWindow(this.$element_[0]))
@@ -239,10 +215,6 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
 
     get props() : any{
         return this._props;
-    }
-    
-    activate() {
-        
     }
 
     /**
@@ -289,7 +261,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                     let attributes = createDecorationAttributesFromSpec(spec);
                     
                     let deco = ProseMirrorView.Decoration.inline(tagPos.from, tagPos.to, attributes, spec); 
-
+                    
                     newDecos.push(deco);
                 }
             }
@@ -489,9 +461,13 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
      * Methods stubbed for awhile
      */
     
-    bindEditable():void { }
+    bindEditable():void {
+        this.isBound = true;
+    }
 
-    unbindEditable():void { }
+    unbindEditable():void {
+        this.isBound = false;
+    }
 
     bindChangeEvents():void { }
 
@@ -502,7 +478,6 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     resetSpellCheck():void { }
 
     restoreSpellCheck():void { }
-
 }
 
 //Extending BeyondGrammar namespace

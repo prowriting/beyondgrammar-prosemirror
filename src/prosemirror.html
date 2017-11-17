@@ -15,7 +15,7 @@
     
     <script src="https://prosemirror.net/examples/prosemirror.js"></script>
 
-    <script src="http://localhost:8080/bundle.js"></script>
+    <!--<script src="http://localhost:8080/bundle.js"></script>-->
     <script src="http://localhost:8082/beyond-grammar-plugin.js"></script>
     
     <link rel=stylesheet href="https://prosemirror.net/css/editor.css"> 
@@ -56,7 +56,7 @@
             marks: prosemirrorSchemaBasic.schema.spec.marks
         });
 
-        let createBeyondGrammarPluginSpec = window["BeyondGrammar"].createBeyondGrammarPluginSpec;///ProseMirrorPlugin({ apiKey : "TEST_CDB" });
+        let createBeyondGrammarPluginSpec = window["BeyondGrammar"].createBeyondGrammarPluginSpec;
         
         let spec = createBeyondGrammarPluginSpec(PM, document.getElementById("editor"),{
             service : { apiKey : "TESTME_CDB", serviceUrl : "//rtg.prowritingaid.com" }, grammar : {}

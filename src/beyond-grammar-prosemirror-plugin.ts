@@ -31,15 +31,14 @@ export function createBeyondGrammarPluginSpec(PM : ExternalProseMirror, element 
     bgOptions.service = objectAssign( DEFAULT_SETTINGS.service, bgOptions.service);
     
     let $element = $(element);
-    let $contentEditable = $element.find("[contenteditable]");
     let plugin = new BeyondGrammarProseMirrorPlugin($element, PM);
     
     loadBeyondGrammarModule(bgOptions.service.sourcePath, (bgModule : BeyondGrammarModule)=>{
         bgModule.loadPwaMarkStyles(window);
-        
+        let $contentEditable = $element.find("[contenteditable]");
         let grammarChecker = new bgModule.GrammarChecker($contentEditable[0], bgOptions.service, bgOptions.grammar, plugin);
         grammarChecker.init().then(()=>{
-           grammarChecker.activate();
+           grammarChecker.activate(); 
            plugin.bgModule  = bgModule;
         });
     });
@@ -72,6 +71,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     onShowPopup: (uid: string, elem: Element) => void;
 
     
+    private spellcheck : string;
     private isBound : boolean = false;
     private _state : any;
     private _props : any;//EditorProps;//TODO
@@ -191,6 +191,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         let self = this;
         this._props = {
             decorations(state) { return this.spec.decos },
+            attributes() { return { spellcheck : false } },
             handleDoubleClick(view: any/*EditorView*/, n : number, p:MouseEvent){//TODO
                 if( !self.isBound ){
                     return true;

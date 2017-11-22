@@ -61,7 +61,7 @@ class DocRange {
 export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrapper{
     //Outside set data
     bgModule:BeyondGrammarModule;
-    editorView: any//EditorView;//TODO
+    editorView: any; //EditorView;//TODO
     
     //Wrapper Callbacks 
     onShowThesaurus: (thesaurusData: ThesaurusData, contextWindow: Window) => boolean;
@@ -153,6 +153,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                     
                     //storing new decos after mapping changes
                     self.decos = self.decos.map(tr.mapping, self.doc);
+                    self.decos = self.invalidateDecorations(self.decos);
 
                     // get the range that is affected by the transformation
                     let range = self.rangeFromTransform(tr);
@@ -222,6 +223,13 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         return this._props;
     }
 
+    invalidateDecorations( decos : any /*DecorationSet*/) : any{ //TODO
+        let changed = decos
+            .find()
+            .filter((deco:any/*Decoration*/)=> this.doc.textBetween(deco.from, deco.to) != (<HighlightSpec>deco.spec).word);
+        return changed.length == 0 ? decos : decos.remove(changed);
+    }
+    
     /**
      * Implementations of IEditableWrapper
      */
@@ -421,7 +429,6 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     // noinspection JSMethodCanBeStatic
     private rangeFromTransform(tr: Transaction): DocRange {//TODO
         let from, to;
-        //console.group("rangeFromTransform");
         for (let i = 0; i < tr.steps.length; i++) {
             let step = <any>tr.steps[i];
             
@@ -431,28 +438,18 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
             let stepFrom = stepMapping.map(step.from || step.pos, -1);
             let stepTo = stepMapping.map(step.to || step.pos, 1);
             
-            //console.log(step);
-            //console.log("=>", step.from, step.pos);
-            //console.log("=>", step.to, step.pos);
-            //console.log("steps", stepFrom, stepTo);
-            
             if( from ) {
-                //console.log("from", stepMapping.map(from, -1), stepFrom);
                 from = Math.min( stepMapping.map( from, -1 ), stepFrom );
             } else {
                 from = stepFrom;
-                //console.log("from", stepFrom)
             }
             
             if( to ) {
-                //console.log("to", stepMapping.map(to, 1), stepTo);
                 to = Math.max( stepMapping.map(to, 1), stepTo );    
             } else {
                 to = stepTo;
-                //console.log("to", stepFrom)
             }
         }
-        console.groupEnd();
         
         return new DocRange( from, to );
     }

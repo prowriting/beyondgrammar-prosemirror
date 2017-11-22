@@ -7,7 +7,7 @@ export class HighlightSpec{
     inclusiveStart: boolean = true;
     inclusiveEnd: boolean = true;
     
-    constructor(public tag: Tag, word : string, public ignored : boolean = false){
+    constructor(public tag: Tag, public word : string, public ignored : boolean = false){
         this.id = 'pwa-' + uuid();
         
         this.highlightInfo = new HighlightInfo();

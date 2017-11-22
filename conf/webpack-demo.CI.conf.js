@@ -39,7 +39,14 @@ module.exports = {
         new CopyWebpackPlugin([
             { from: './src/prosemirror.html', to: './' },
             { context : './src', from: {glob : './icons/**/*'}, to:'./' },
-        ])
+        ]),
+
+        new webpack.optimize.UglifyJsPlugin({
+            compress: {
+                warnings: false,
+                drop_console: true
+            }
+        })
     ],
 
     resolve: {

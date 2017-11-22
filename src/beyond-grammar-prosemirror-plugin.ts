@@ -1,20 +1,25 @@
+///<reference path="../prosemirror.d.ts"/>
+import {ExternalProseMirror} from "../prosemirror";
+
 import {
     BGOptions, IEditableWrapper,
     HighlightInfo, Tag, ThesaurusData, BeyondGrammarModule
 } from "./interfaces/editable-wrapper";
-import {PluginSpec, Transaction} from "prosemirror-state";
-import {Decoration, DecorationSet, EditorProps, EditorView} from "prosemirror-view";
-import * as ProseMirrorView  from 'prosemirror-view';
-import * as ProseMirrorModel from 'prosemirror-model';
+
+import {Node as PMNode} from "@types/prosemirror-model";
+import {PluginSpec, Transaction} from "@types/prosemirror-state";
+//import {EditorView, EditorProps, DecorationSet, Decoration} from "@types/prosemirror-view";
+
 import * as $ from "jquery";
 import {HighlightSpec} from "./highlight-spec";
 import {createDecorationAttributesFromSpec, objectAssign} from "./utils";
 import {getWindow, loadBeyondGrammarModule} from "./utils/dom";
 
+
 export const CSS_IGNORED = 'pwa-mark-ignored';
 const PWA_DECO_UPDATE_META = 'pwa-deco-update';
 
-export function createBeyondGrammarPluginSpec(pm, element : HTMLElement, bgOptions ?: BGOptions ) {
+export function createBeyondGrammarPluginSpec(PM : ExternalProseMirror, element : HTMLElement, bgOptions ?: BGOptions ) {
     const DEFAULT_SETTINGS : BGOptions = {
         grammar : {},
         service : {
@@ -27,7 +32,7 @@ export function createBeyondGrammarPluginSpec(pm, element : HTMLElement, bgOptio
     
     let $element = $(element);
     let $contentEditable = $element.find("[contenteditable]");
-    let plugin = new BeyondGrammarProseMirrorPlugin($element);
+    let plugin = new BeyondGrammarProseMirrorPlugin($element, PM);
     
     loadBeyondGrammarModule(bgOptions.service.sourcePath, (bgModule : BeyondGrammarModule)=>{
         bgModule.loadPwaMarkStyles(window);
@@ -56,7 +61,7 @@ class DocRange {
 export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrapper{
     //Outside set data
     bgModule:BeyondGrammarModule;
-    editorView: ProseMirrorView.EditorView;
+    editorView: any//EditorView;//TODO
     
     //Wrapper Callbacks 
     onShowThesaurus: (thesaurusData: ThesaurusData, contextWindow: Window) => boolean;
@@ -69,12 +74,12 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     
     private isBound : boolean = false;
     private _state : any;
-    private _props : EditorProps;
-    private decos : DecorationSet;
-    private doc : ProseMirrorModel.Node;
+    private _props : any;//EditorProps;//TODO
+    private decos  : any;//DecorationSet;//TODO
+    private doc    : PMNode;
     private lastThesaurusData_ : ThesaurusData;
     
-    constructor( private $element_ : JQuery ){
+    constructor( private $element_ : JQuery, private PM : any){
         this.initState();
         this.initProps();
         this.bindEditableEvents();
@@ -123,7 +128,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     
     initState() {
         let self = this;
-        this.decos = DecorationSet.empty;//.create(this.doc, []);
+        this.decos = self.PM.view.DecorationSet.empty;//.create(this.doc, []);
         
         this._state = {
             init(config, state){
@@ -135,7 +140,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                 return {decos : self.decos};
             },
             
-            apply( tr : Transaction, pluginState, old, newState ) {
+            apply( tr : Transaction, pluginState, old, newState ) { //TODO
                 
                 //console.log("apply value=", pluginState);
                 
@@ -185,7 +190,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         let self = this;
         this._props = {
             decorations(state) { return this.spec.decos },
-            handleDoubleClick(view:EditorView, n : number, p:MouseEvent){
+            handleDoubleClick(view: any/*EditorView*/, n : number, p:MouseEvent){//TODO
                 if( !self.isBound ){
                     return true;
                 }
@@ -223,7 +228,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     
     applyHighlightsSingleBlock(elem:HTMLElement, text:string, tags:Tag[], checkAll:boolean):void {
         
-        let node = <ProseMirrorModel.Node><any>elem;
+        let node = <PMNode><any>elem;
         if (text == node.textContent) {
             let start = this.getPositionInDocument(node);
             let length = text.length;
@@ -234,7 +239,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
             for(let i = 0; i < tags.length; i++){
                 let tag = tags[i];
                 let tagPos = { from : tag.startPos + start, to : tag.endPos + start + 1 };
-                let existing : Decoration = null;
+                let existing : any/*Decoration*/ = null;//TODO
                 
                 for(let k = 0; k < decosForBlock.length; k++){
                     let deco = decosForBlock[k];
@@ -260,7 +265,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                     let spec = new HighlightSpec(tag, word);
                     let attributes = createDecorationAttributesFromSpec(spec);
                     
-                    let deco = ProseMirrorView.Decoration.inline(tagPos.from, tagPos.to, attributes, spec); 
+                    let deco = this.PM.view.Decoration.inline(tagPos.from, tagPos.to, attributes, spec); 
                     
                     newDecos.push(deco);
                 }
@@ -291,7 +296,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
             let notIgnoredDecos = this.decos.find(undefined, undefined, (spec:HighlightSpec)=>!spec.ignored);
             this.decos = this.decos.remove(notIgnoredDecos);
         }else {
-            this.decos = DecorationSet.empty;
+            this.decos = this.PM.view.DecorationSet.empty;
         }
         this.applyDecoUpdateTransaction();
     }
@@ -303,7 +308,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         let spec = <HighlightSpec>deco.spec;
         spec.ignored = true;
         
-        let new_deco = ProseMirrorView.Decoration.inline(deco.from, deco.to, createDecorationAttributesFromSpec(spec), spec);
+        let new_deco = this.PM.view.Decoration.inline(deco.from, deco.to, createDecorationAttributesFromSpec(spec), spec);//TODO
         
         this.decos = this.decos.remove([deco]).add(this.doc, [new_deco]);
         
@@ -360,7 +365,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     }
 
     getText(blockElement:HTMLElement):string {
-        let node = <ProseMirrorModel.Node>(<any>blockElement);
+        let node = <PMNode>(<any>blockElement);//TODO
         return node.textContent;
     }
     
@@ -380,7 +385,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         return this.decos.find().length;
     }
 
-    private applyDecoUpdateTransaction(process ?: (tr:Transaction)=>void){
+    private applyDecoUpdateTransaction(process ?: (tr:Transaction)=>void){//TODO
         let tr = this.editorView.state.tr;
         tr.setMeta(PWA_DECO_UPDATE_META,true);
         process && process(tr);
@@ -388,7 +393,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         this.editorView.updateState(newState);
     }
 
-    private getPositionInDocument(theNode: ProseMirrorModel.Node): number{
+    private getPositionInDocument(theNode: PMNode): number{ //TODO
         let pos = 0;
         let finished = false;
         this.doc.descendants((node)=>{
@@ -414,7 +419,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     }
 
     // noinspection JSMethodCanBeStatic
-    private rangeFromTransform(tr: Transaction): DocRange {
+    private rangeFromTransform(tr: Transaction): DocRange {//TODO
         let from, to;
         //console.group("rangeFromTransform");
         for (let i = 0; i < tr.steps.length; i++) {
@@ -452,10 +457,10 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         return new DocRange( from, to );
     }
 
-    private getDecoById(uuid: string):Decoration{
+    private getDecoById(uuid: string):any/*Decoration*/{//TODO
         let decos = this.decos.find(null,null,spec=>(<HighlightSpec>spec).id == uuid);
         return decos[0];
-    }
+    } 
 
     /**
      * Methods stubbed for awhile

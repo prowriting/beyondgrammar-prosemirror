@@ -7,8 +7,8 @@ import {
 } from "./interfaces/editable-wrapper";
 
 import {Node as PMNode} from "@types/prosemirror-model";
-import {PluginSpec, Transaction} from "@types/prosemirror-state";
-//import {EditorView, EditorProps, DecorationSet, Decoration} from "@types/prosemirror-view";
+import {EditorState, PluginSpec, StateField, Transaction} from "@types/prosemirror-state";
+import {EditorView, EditorProps, DecorationSet, Decoration} from "@types/prosemirror-view";
 
 import * as $ from "jquery";
 import {HighlightSpec} from "./highlight-spec";
@@ -50,7 +50,7 @@ export function createBeyondGrammarPluginSpec_(PM : ExternalProseMirror, element
 export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrapper{
     //Outside set data
     bgModule_:BeyondGrammarModule;
-    editorView: any; //EditorView;//TODO
+    editorView: EditorView;
     
     //Wrapper Callbacks 
     onShowThesaurus: (thesaurusData: ThesaurusData, contextWindow: Window) => boolean;
@@ -62,9 +62,9 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
 
     
     private isBound_ : boolean = false;
-    private state_   : any;
-    private props_   : any;//EditorProps;//TODO
-    private decos_   : any;//DecorationSet;//TODO
+    private state_   : StateField<any>;
+    private props_   : EditorProps;
+    private decos_   : DecorationSet;
     private doc_     : PMNode;
     private lastThesaurusData_ : ThesaurusData;
     
@@ -129,7 +129,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                 return {decos : self.decos_};
             },
             
-            apply( tr : Transaction, pluginState, old, newState ) { //TODO
+            apply( tr : Transaction, pluginState, old : EditorState, newState : EditorState ) {
                 
                 //console.log("apply value=", pluginState);
                 
@@ -180,8 +180,8 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         let self = this;
         this.props_ = {
             decorations(state) { return this.spec.decos_ },
-            attributes() { return { spellcheck : false } },
-            handleDoubleClick(view: any/*EditorView*/, n : number, p:MouseEvent){//TODO
+            attributes : { spellcheck : "false" },
+            handleDoubleClick(view: EditorView, n : number, p:MouseEvent){
                 if( !self.isBound_ ){
                     return true;
                 }
@@ -205,18 +205,18 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         return this.onShowThesaurus( thesaurusData, getWindow_(this.$element_[0]))
     }
     
-    get state(): any {
+    get state(): StateField<any>{
         return this.state_;
     }
 
-    get props() : any{
+    get props() : EditorProps{
         return this.props_;
     }
 
-    invalidateDecorations_(decos : any /*DecorationSet*/) : any{ //TODO
+    invalidateDecorations_(decos : DecorationSet) : DecorationSet{
         let changed = decos
             .find()
-            .filter((deco:any/*Decoration*/)=> this.doc_.textBetween(deco.from, deco.to) != (<HighlightSpec>deco.spec).word);
+            .filter((deco:Decoration)=> this.doc_.textBetween(deco.from, deco.to) != (<HighlightSpec>deco.spec).word);
         return changed.length == 0 ? decos : decos.remove(changed);
     }
     
@@ -237,7 +237,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
             for(let i = 0; i < tags.length; i++){
                 let tag = tags[i];
                 let tagPos = { from : tag.startPos + start, to : tag.endPos + start + 1 };
-                let existing : any/*Decoration*/ = null;//TODO
+                let existing : Decoration = null;
                 
                 for(let k = 0; k < decosForBlock.length; k++){
                     let deco = decosForBlock[k];
@@ -304,7 +304,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         let spec = <HighlightSpec>deco.spec;
         spec.ignored = true;
         
-        let new_deco = this.PM_.view.Decoration.inline(deco.from, deco.to, createDecorationAttributesFromSpec(spec), spec);//TODO
+        let new_deco = this.PM_.view.Decoration.inline(deco.from, deco.to, createDecorationAttributesFromSpec(spec), spec);
         
         this.decos_ = this.decos_.remove([deco]).add(this.doc_, [new_deco]);
         
@@ -361,7 +361,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     }
 
     getText(blockElement:HTMLElement):string {
-        let node = <PMNode>(<any>blockElement);//TODO
+        let node = <PMNode>(<any>blockElement);
         return node.textContent;
     }
     
@@ -381,7 +381,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         return this.decos_.find().length;
     }
 
-    private applyDecoUpdateTransaction_(process ?: (tr:Transaction)=>void){//TODO
+    private applyDecoUpdateTransaction_(process ?: (tr:Transaction)=>void){
         let tr = this.editorView.state.tr;
         tr.setMeta(PWA_DECO_UPDATE_META_, true);
         process && process(tr);
@@ -389,7 +389,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         this.editorView.updateState(newState);
     }
 
-    private getPositionInDocument_(theNode: PMNode): number{ //TODO
+    private getPositionInDocument_(theNode: PMNode): number{
         let pos = 0;
         let finished = false;
         this.doc_.descendants((node)=>{
@@ -415,7 +415,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     }
 
     // noinspection JSMethodCanBeStatic
-    private rangeFromTransform_(tr: Transaction): DocRange_ {//TODO
+    private rangeFromTransform_(tr: Transaction): DocRange_ {
         let from, to;
         for (let i = 0; i < tr.steps.length; i++) {
             let step = <any>tr.steps[i];
@@ -442,7 +442,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         return new DocRange_( from, to );
     }
 
-    private getDecoById_(uuid: string):any/*Decoration*/{//TODO
+    private getDecoById_(uuid: string):Decoration{
         let decos = this.decos_.find(null,null,spec=>(<HighlightSpec>spec).id == uuid);
         return decos[0];
     } 

@@ -16,8 +16,8 @@ import {createDecorationAttributesFromSpec, objectAssign} from "./utils";
 import {DocRange_, getWindow_, loadBeyondGrammarModule_} from "./utils/dom";
 
 
-export const CSS_IGNORED = 'pwa-mark-ignored';
-const PWA_DECO_UPDATE_META = 'pwa-deco-update';
+const CSS_IGNORED_ = 'pwa-mark-ignored';
+const PWA_DECO_UPDATE_META_ = 'pwa-deco-update';
 
 export function createBeyondGrammarPluginSpec_(PM : ExternalProseMirror, element : HTMLElement, bgOptions ?: BGOptions ) {
     const DEFAULT_SETTINGS : BGOptions = {
@@ -95,7 +95,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
 
         // activates suggestion popup
         // @TODO: move to separate method
-        this.$element_.on('mouseover touchend', `.pwa-mark:not(.${CSS_IGNORED})`, (evt: JQueryEventObject) => {
+        this.$element_.on('mouseover touchend', `.pwa-mark:not(.${CSS_IGNORED_})`, (evt: JQueryEventObject) => {
             let elem = evt.target,
                 uid = elem.getAttribute('data-pwa-id');
 
@@ -166,7 +166,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                 }
                 
                 // a special transaction just for us to supply our updated decos
-                if (tr.getMeta(PWA_DECO_UPDATE_META)){
+                if (tr.getMeta(PWA_DECO_UPDATE_META_)){
                     self.decos_ = self.decos_.map(tr.mapping, self.doc_);
                     return { decos : self.decos_ };
                 }
@@ -275,8 +275,6 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         }
     }
     
-    //private 
-
     getHighlightInfo(uid:string):HighlightInfo {
         let decos = this.decos_;
         if (decos) {
@@ -385,7 +383,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
 
     private applyDecoUpdateTransaction_(process ?: (tr:Transaction)=>void){//TODO
         let tr = this.editorView.state.tr;
-        tr.setMeta(PWA_DECO_UPDATE_META,true);
+        tr.setMeta(PWA_DECO_UPDATE_META_, true);
         process && process(tr);
         let newState = this.editorView.state.apply( tr );
         this.editorView.updateState(newState);

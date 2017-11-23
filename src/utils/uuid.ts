@@ -2,10 +2,10 @@
  * Generates unique id
  * @return {string}
  */
-export function uuid() {
+export function uuid_() {
     let res = '';
 
-    for (var i = 0; i < 32; i++) {
+    for (let i = 0; i < 32; i++) {
         res += Math.floor(Math.random() * 16).toString(16).toUpperCase();
     }
 

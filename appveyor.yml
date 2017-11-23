@@ -45,6 +45,6 @@ deploy:
     secure: gzyqglVhkink16D5LDmANUnHDoe/yvOCDWr79JlBDX5pSf6ewKBwGr1ttNd0a08+J/rQbyEmXw8mLxDLoBJwrFxYqsZQIMEhcR7chDy5p2aNK+wA5IxmI2NFwtW8LaWb
   container: cdn
   folder: $(APPVEYOR_PROJECT_SLUG)\$(APPVEYOR_BUILD_VERSION)
-  artifact: tinymce
+  artifact: prosemirror
   unzip: false
   set_content_type:  true

@@ -23,7 +23,7 @@ export interface BeyondGrammarModule{
 //Interfaces from BeyondGrammar Core : 
 
 
-export class DictionaryEntry {
+export interface DictionaryEntry {
     Id : string;
     Word : string;
     Replacement ?: string;
@@ -79,7 +79,7 @@ export interface IGrammarChecker {
     apiKey ?: string;
 }*/
 
-export class Tag{
+export interface Tag{
     startPos : number;
     endPos : number;
     hint : string;

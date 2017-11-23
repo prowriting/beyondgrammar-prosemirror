@@ -1,5 +1,5 @@
 import {HighlightInfo, Tag} from "./interfaces/editable-wrapper";
-import {uuid} from "./utils/uuid";
+import {uuid_} from "./utils/uuid";
 
 export class HighlightSpec{
     id: string;
@@ -8,7 +8,7 @@ export class HighlightSpec{
     inclusiveEnd: boolean = true;
     
     constructor(public tag: Tag, public word : string, public ignored : boolean = false){
-        this.id = 'pwa-' + uuid();
+        this.id = 'pwa-' + uuid_();
         
         this.highlightInfo = new HighlightInfo();
         this.highlightInfo.category=tag.category;

@@ -20,8 +20,7 @@ module.exports = {
     },
 
     entry: {
-        'beyond-grammar-plugin' : "./src/beyond-grammar-prosemirror-plugin.ts"//,
-        //"i18n-en" : "expose?GrammarChecker_lang_en!./src/i18n/en.ts"
+        'beyond-grammar-plugin' : "./src/beyond-grammar-prosemirror-plugin.ts"
     },
 
     plugins: [
@@ -31,6 +30,15 @@ module.exports = {
         ]),
 
         /*new webpack.optimize.UglifyJsPlugin({
+            toplevel: true,
+            mangle:
+                {
+                    regex: /_$/,
+                    props: {
+                        regex: /_$/,
+                        toplevel: true
+                    }
+                },
             compress: {
                 warnings: false,
                 drop_console: true

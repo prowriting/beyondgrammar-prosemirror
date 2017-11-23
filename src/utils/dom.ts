@@ -1,6 +1,6 @@
 import {BeyondGrammarModule} from "../interfaces/editable-wrapper";
 
-export function getWindow(el: Node){
+export function getWindow_(el: Node){
     if( document == el.ownerDocument  ) {
         return window
     }
@@ -8,7 +8,7 @@ export function getWindow(el: Node){
     return doc.defaultView || (<any>doc).parentWindow;
 }
 
-export function loadBeyondGrammarModule(src : string, onLoad ?: (module:BeyondGrammarModule)=> void){
+export function loadBeyondGrammarModule_(src : string, onLoad ?: (module:BeyondGrammarModule)=> void){
     let script = document.createElement("script");
     script.src = src;//"bundle.js?r=" + Math.ceil(Math.random() * 1e6);
     (document.head || document.body).appendChild(script);
@@ -21,4 +21,13 @@ export function loadBeyondGrammarModule(src : string, onLoad ?: (module:BeyondGr
             onLoad && onLoad( module = window["BeyondGrammar"]);
         }
     }
+}
+
+export class DocRange_ {
+    constructor(from: number, to: number){
+        this.from=from;
+        this.to=to;
+    }
+    from: number;
+    to: number;
 }

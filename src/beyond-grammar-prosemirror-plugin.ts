@@ -166,8 +166,9 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                 }
                 
                 // a special transaction just for us to supply our updated decos
-                if (tr.getMeta(PWA_DECO_UPDATE_META_)){
-                    self.decos_ = self.decos_.map(tr.mapping, self.doc_);
+                if (!tr.docChanged && tr.getMeta(PWA_DECO_UPDATE_META_)){
+                    self.decos_ = self.decos_.map( tr.mapping, self.doc_ );
+                    self.decos_ = self.invalidateDecorations_(self.decos_);
                     return { decos : self.decos_ };
                 }
                 
@@ -314,50 +315,47 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     omit(uid:string):void {
         let deco = this.getDecoById_(uid);
         if (deco){
-            //creating new transaction with delete operation
-            let tr = this.editorView.state.tr;
-            tr.delete(deco.from, deco.to);
-            
-            //remove non-actual deco
-            this.decos_ = this.decos_.remove([deco]);
-            
-            //applying transaction and updating view
-            let newState = this.editorView.state.apply(tr);
-            this.editorView.updateState(newState);
+            this.applyDecoUpdateTransaction_((tr:Transaction)=>{
+                tr.delete(deco.from, deco.to);
+                this.decos_ = this.decos_.remove([deco]);
+                return deco.from;
+            });
         }
     }
 
     accept(uid:string, suggestion:string):void {
         let deco = this.getDecoById_(uid);
         if (deco){
-            let tr = this.editorView.state.tr;
-            this.decos_ = this.decos_.remove([deco]);
-            tr
-                .replace(deco.from, deco.to)
-                .insertText(suggestion, deco.from);
-
-            let newState = this.editorView.state.apply(tr);
-            this.editorView.updateState(newState);
+            this.applyDecoUpdateTransaction_((tr:Transaction)=>{
+                //let tr = this.editorView.state.tr;
+                this.decos_ = this.decos_.remove([deco]);
+                tr
+                    .replace(deco.from, deco.to)
+                    .insertText(suggestion, deco.from);
+                return deco.from + suggestion.length;
+            });
         }
     }
 
     onAddToDictionary(uid:string):void {
         let deco = this.getDecoById_(uid);
         if (deco) {
-            let specToAdd: HighlightSpec = <HighlightSpec>deco.spec;
-            let decosToRemove = this.decos_.find(null, null, (spec : HighlightSpec) => {
-                return spec.tag.category == specToAdd.tag.category && spec.highlightInfo.word == specToAdd.highlightInfo.word;
+            this.applyDecoUpdateTransaction_(()=>{
+                let specToAdd: HighlightSpec = <HighlightSpec>deco.spec;
+                let decosToRemove = this.decos_.find(null, null, (spec : HighlightSpec) => {
+                    return spec.tag.category == specToAdd.tag.category && spec.word == specToAdd.word;
+                });
+                this.decos_ = this.decos_.remove(decosToRemove);
+                return deco.to;
             });
-            this.decos_ = this.decos_.remove(decosToRemove);
-            this.applyDecoUpdateTransaction_();
         }
     }
 
     applyThesaurus(replacement:string):void {
-        let tr = this.editorView.state.tr;
-        tr.insertText(replacement, tr.selection.from, tr.selection.from + this.lastThesaurusData_.word.length);
-        let newState = this.editorView.state.apply(tr);
-        this.editorView.updateState(newState);        
+        this.applyDecoUpdateTransaction_((tr : Transaction)=>{
+            tr.insertText(replacement, tr.selection.from, tr.selection.from + this.lastThesaurusData_.word.length);
+            return tr.selection.from + this.lastThesaurusData_.word.length;
+        });    
     }
 
     getText(blockElement:HTMLElement):string {
@@ -381,12 +379,22 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         return this.decos_.find().length;
     }
 
-    private applyDecoUpdateTransaction_(process ?: (tr:Transaction)=>void){
+    private applyDecoUpdateTransaction_(process ?: (tr:Transaction)=>number ){
         let tr = this.editorView.state.tr;
         tr.setMeta(PWA_DECO_UPDATE_META_, true);
-        process && process(tr);
+        
+        let cursorPosition = process ? process(tr) : -1;
+        
+        if( cursorPosition != -1 ){
+            tr.setSelection(this.PM_.state.TextSelection.create(this.doc_, cursorPosition));
+        }
+        
         let newState = this.editorView.state.apply( tr );
         this.editorView.updateState(newState);
+        
+        if( cursorPosition != -1 ){
+            this.editorView.focus();
+        }
     }
 
     private getPositionInDocument_(theNode: PMNode): number{

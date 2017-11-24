@@ -92,9 +92,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                 this.onPopupClose();
             }
         });
-
-        // activates suggestion popup
-        // @TODO: move to separate method
+        
         this.$element_.on('mouseover touchend', `.pwa-mark:not(.${CSS_IGNORED_})`, (evt: JQueryEventObject) => {
             let elem = evt.target,
                 uid = elem.getAttribute('data-pwa-id');
@@ -117,8 +115,9 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     
     initState_() {
         let self = this;
-        this.decos_ = self.PM_.view.DecorationSet.empty;//.create(this.doc, []);
+        this.decos_ = self.PM_.view.DecorationSet.empty;
         
+        // noinspection JSUnusedLocalSymbols
         this.state_ = {
             init(config, state){
                 // we should start the checker
@@ -140,36 +139,13 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                     // I think we need to update our decos using the mapping of
                     // the transaction. This should update all the from and tos
                     
-                    //storing new decos after mapping changes
+                    //As I understand it makes sense only if content was changed, in other case it is not necessary
                     self.decos_ = self.decos_.map(tr.mapping, self.doc_);
                     self.decos_ = self.invalidateDecorations_(self.decos_);
-
-                    // get the range that is affected by the transformation
-                    let range = self.rangeFromTransform_(tr);
-                    
-                    // update all the blocks that have been affected by the transformation
-                    self.doc_.nodesBetween(range.from, range.to, (elem) => {
-                        if (elem.isTextblock) {
-                            if (self.onBlockChanged) {
-                                //console.info("onBlockChanged", elem);
-                                self.onBlockChanged(<any>elem);
-                            }
-                            return false;
-                        }
-                        return true;
-                    });
-                    
-                    // set off a check
-                    if (self.onCheckRequired) {
-                        self.onCheckRequired();
-                    }
                 }
                 
-                // a special transaction just for us to supply our updated decos
-                if (!tr.docChanged && tr.getMeta(PWA_DECO_UPDATE_META_)){
-                    self.decos_ = self.decos_.map( tr.mapping, self.doc_ );
-                    self.decos_ = self.invalidateDecorations_(self.decos_);
-                    return { decos : self.decos_ };
+                if (tr.docChanged) {
+                    self.onDocChangedTransaction_(tr);
                 }
                 
                 return { decos : self.decos_ };
@@ -177,12 +153,34 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         }
     }
     
+    onDocChangedTransaction_(tr : Transaction ){
+        // get the range that is affected by the transformation
+        let range = this.rangeFromTransform_(tr);
+
+        // update all the blocks that have been affected by the transformation
+        this.doc_.nodesBetween(range.from, range.to, (elem) => {
+            if (elem.isTextblock) {
+                if (this.onBlockChanged) {
+                    //console.info("onBlockChanged", elem);
+                    this.onBlockChanged(<any>elem);
+                }
+                return false;
+            }
+            return true;
+        });
+
+        // set off a check
+        if (this.onCheckRequired) {
+            this.onCheckRequired();
+        }
+    }
+    
     initProps_() {
         let self = this;
         this.props_ = {
-            decorations(state) { return this.spec.decos_ },
+            decorations() { return this.spec.decos_ },
             attributes : { spellcheck : "false" },
-            handleDoubleClick(view: EditorView, n : number, p:MouseEvent){
+            handleDoubleClick(){
                 if( !self.isBound_ ){
                     return true;
                 }
@@ -226,9 +224,23 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
      */
     
     applyHighlightsSingleBlock(elem:HTMLElement, text:string, tags:Tag[], checkAll:boolean):void {
+
+        // problem is PM is in most cases immutable, so if we started checking on one node, will type something
+        // in dom we will have another node, but as we have it returned from closure this node can be 
+        // incorrect(removed from dom structure). So we should make checking by existing checked element
+        // not it's content or text, as it is in dom, that means it is not changed, if it is not in dom, that
+        // means it is not actual and we can skip check result.
+
+        let found = false;
+        this.doc_.descendants((node:PMNode)=>{
+            if( <any>elem == node ) {
+                found = true;
+            }
+            return !found;
+        });
         
-        let node = <PMNode><any>elem;
-        if (text == node.textContent) {
+        if (found) {
+            let node = <PMNode><any>elem;
             let start = this.getPositionInDocument_(node);
             let length = text.length;
             // find the decos from the start and end of this element and remove them
@@ -301,15 +313,18 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     ignore(uid:string):void {
         let deco = this.getDecoById_(uid);
         
-        //getting old spec, marking it as ignored and creating from it new ignored deco
-        let spec = <HighlightSpec>deco.spec;
-        spec.ignored = true;
-        
-        let new_deco = this.PM_.view.Decoration.inline(deco.from, deco.to, createDecorationAttributesFromSpec(spec), spec);
-        
-        this.decos_ = this.decos_.remove([deco]).add(this.doc_, [new_deco]);
-        
-        this.applyDecoUpdateTransaction_();
+        if( deco ) {
+            this.applyDecoUpdateTransaction_(()=>{
+                //getting old spec, marking it as ignored and creating from it new ignored deco
+                let spec = <HighlightSpec>deco.spec;
+                spec.ignored = true;
+
+                let new_deco = this.PM_.view.Decoration.inline(deco.from, deco.to, createDecorationAttributesFromSpec(spec), spec);
+
+                this.decos_ = this.decos_.remove([deco]).add(this.doc_, [new_deco]);
+                return deco.to;
+            });
+        }
     }
 
     omit(uid:string):void {

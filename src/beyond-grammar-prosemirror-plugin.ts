@@ -3,7 +3,7 @@ import {ExternalProseMirror} from "../prosemirror";
 
 import {
     BGOptions, IEditableWrapper,
-    HighlightInfo, Tag, ThesaurusData, BeyondGrammarModule
+    HighlightInfo, Tag, ThesaurusData, BeyondGrammarModule, INodeWrapper
 } from "./interfaces/editable-wrapper";
 
 import {Node as PMNode} from "@types/prosemirror-model";
@@ -158,11 +158,11 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         let range = this.rangeFromTransform_(tr);
 
         // update all the blocks that have been affected by the transformation
-        this.doc_.nodesBetween(range.from, range.to, (elem) => {
+        this.doc_.nodesBetween(range.from, range.to, (elem, pos) => {
             if (elem.isTextblock) {
                 if (this.onBlockChanged) {
                     //console.info("onBlockChanged", elem);
-                    this.onBlockChanged(<any>elem);
+                    this.onBlockChanged(<any>this.wrapNode_(elem, pos));
                 }
                 return false;
             }
@@ -223,7 +223,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
      * Implementations of IEditableWrapper
      */
     
-    applyHighlightsSingleBlock(elem:HTMLElement, text:string, tags:Tag[], checkAll:boolean):void {
+    applyHighlightsSingleBlock(elem:HTMLElement | INodeWrapper, text:string, tags:Tag[], checkAll:boolean):void {
 
         // problem is PM is in most cases immutable, so if we started checking on one node, will type something
         // in dom we will have another node, but as we have it returned from closure this node can be 
@@ -231,61 +231,64 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         // not it's content or text, as it is in dom, that means it is not changed, if it is not in dom, that
         // means it is not actual and we can skip check result.
 
+        //unwrapping element, as elem is result of wrapNode method
+        //store textContent as tag positions related to it
+        let {node, textContent} = <INodeWrapper>elem;
+        
         let found = false;
-        this.doc_.descendants((node:PMNode)=>{
-            if( <any>elem == node ) {
+        this.doc_.descendants((n:PMNode)=>{
+            if( node == n ) {
                 found = true;
             }
             return !found;
         });
         
-        if (found) {
-            let node = <PMNode><any>elem;
-            let start = this.getPositionInDocument_(node);
-            let length = text.length;
-            // find the decos from the start and end of this element and remove them
-            let decosForBlock = this.decos_.find(start,start + length);
-            
-            let newDecos = [];
-            for(let i = 0; i < tags.length; i++){
-                let tag = tags[i];
-                let tagPos = { from : tag.startPos + start, to : tag.endPos + start + 1 };
-                let existing : Decoration = null;
-                
-                for(let k = 0; k < decosForBlock.length; k++){
-                    let deco = decosForBlock[k];
-                    let spec = <HighlightSpec>deco.spec;
-                    if (deco.from===tagPos.from  && deco.to===tagPos.to){ 
-                        //update tag item with new tag instance
-                        spec.tag=tag;
+        if(!found) return; //nothing to do
 
-                        // As I understand we should make step backward, as if we've removed on k, k+1 in next iteration
-                        // skips, as it was shifted
-                        decosForBlock.splice(k--,1);
-                        
-                        existing=deco;
-                        break;
-                    }
-                }
-                
-                // no existing, so we can say it is new???
-                if (existing===null) {
-                    // check for an existing decoration  
-                    //
-                    let word = node.textContent.substring(tag.startPos, tag.endPos+1);
-                    let spec = new HighlightSpec(tag, word);
-                    let attributes = createDecorationAttributesFromSpec(spec);
-                    
-                    let deco = this.PM_.view.Decoration.inline(tagPos.from, tagPos.to, attributes, spec); 
-                    
-                    newDecos.push(deco);
+        let start = this.getPositionInDocument_(node);
+        let length = text.length;
+        // find the decos from the start and end of this element and remove them
+        let decosForBlock = this.decos_.find(start,start + length);
+        let newDecos = [];
+        
+        for(let i = 0; i < tags.length; i++){
+            let tag = tags[i];
+            let tagPos = { from : tag.startPos + start, to : tag.endPos + start + 1 };
+            let existing : Decoration = null;
+
+            for(let k = 0; k < decosForBlock.length; k++){
+                let deco = decosForBlock[k];
+                let spec = <HighlightSpec>deco.spec;
+                if (deco.from===tagPos.from  && deco.to===tagPos.to){
+                    //update tag item with new tag instance
+                    spec.tag=tag;
+
+                    // As I understand we should make step backward, as if we've removed on k, k+1 in next iteration
+                    // skips, as it was shifted
+                    decosForBlock.splice(k--,1);
+
+                    existing=deco;
+                    break;
                 }
             }
-            
-            this.decos_ = this.decos_.remove(decosForBlock).add(this.doc_, newDecos);
-            
-            this.applyDecoUpdateTransaction_();
+
+            // no existing, so we can say it is new???
+            if (existing===null) {
+                // check for an existing decoration  
+                //
+                let word = textContent.substring(tag.startPos, tag.endPos+1);
+                let spec = new HighlightSpec(tag, word);
+                let attributes = createDecorationAttributesFromSpec(spec);
+
+                let deco = this.PM_.view.Decoration.inline(tagPos.from, tagPos.to, attributes, spec);
+
+                newDecos.push(deco);
+            }
         }
+
+        this.decos_ = this.decos_.remove(decosForBlock).add(this.doc_, newDecos);
+
+        this.applyDecoUpdateTransaction_();
     }
     
     getHighlightInfo(uid:string):HighlightInfo {
@@ -380,14 +383,24 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     
     getAllElements():HTMLElement[] {
         let result = [];
-        this.doc_.descendants((node)=>{
+        this.doc_.descendants((node, pos)=>{
             if (node.isTextblock){
-                result.push(node);
+                result.push( <any>this.wrapNode_( node, pos) );
                 return false;
             }
             return true;
         });
         return result;
+    }
+    
+    private wrapNode_(node : PMNode, pos : number) : INodeWrapper{
+        // we should re-write text content, as in real case textContent of DOM can't contains images and unsized elements
+        // but PM can do this. So it's text block can contains images, so when we getting textContent we skips images
+        // and broken indexed after image when adding highlights
+        return {
+            node : node,
+            textContent : this.doc_.textBetween( pos, pos + node.nodeSize, null, " " )
+        }
     }
 
     getCurrentErrorCount():number {
@@ -415,23 +428,17 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     private getPositionInDocument_(theNode: PMNode): number{
         let pos = 0;
         let finished = false;
-        this.doc_.descendants((node)=>{
+        this.doc_.descendants((node, p)=>{
             if (finished){
                 return false;
             }
             
-            // each node has an index, we should to count it too
-            pos++;
-            if ( node.isTextblock ){
-                if (node.eq(theNode)){
-                    finished=true;
-                } else {
-                    // count add nodeSize instead of textContent.length, as it contains additional `indexes`, 
-                    // but need to remove 1 as it is already included in nodeSize
-                    pos += node.nodeSize - 1;
-                }
+            if( node.eq( theNode )) {
+                pos = p + 1;
+                finished = true;
                 return false;
             }
+            
             return true;
         });
         return pos;

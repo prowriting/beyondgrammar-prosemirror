@@ -3,7 +3,7 @@
 import {ILanguage} from "./ILanguage";
 import {IGrammarCheckerSettings} from "./IGrammarCheckerSettings";
 import {IServiceSettings} from "./IServiceSettings";
-
+import {Node as PMNode} from "@types/prosemirror-model";
 
 export interface BGOptions {
     service ?: IServiceSettings;
@@ -18,6 +18,11 @@ export interface BeyondGrammarModule{
     GrammarChecker : GrammarCheckerConstuctor;
     getThesaurusData(contextWindow : Window, $container : JQuery, $target:JQuery, isContextual : boolean ) : ThesaurusData;
     loadPwaMarkStyles(win : Window);
+}
+
+export interface INodeWrapper{
+    node : PMNode;
+    textContent : string;
 }
 
 //Interfaces from BeyondGrammar Core : 

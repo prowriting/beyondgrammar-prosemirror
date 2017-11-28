@@ -1,10 +1,10 @@
-#BeyondGrammar plugin for ProseMirror editor
+# BeyondGrammar plugin for ProseMirror editor
 
 Bring real-time spelling, grammar and style checking into your ProseMirror editor. Perfect for CMSs, help desk systems and blogs.
 
 To add real-time grammar, spell and style checking to your ProseMirror editor you just need to install this add-in. It's free for individuals and reasonably proced for multi-user licenses.
 
-##Why choose our plugin?
+## Why choose our plugin?
 
 Our state-of-the-art grammar checker is used by over 500,000 users. It contains many unique features that you won't find in other solutions. These include:
 
@@ -16,7 +16,7 @@ Our state-of-the-art grammar checker is used by over 500,000 users. It contains 
 
 - Contextual thesaurus. Our contextual thesaurus looks at the context of the word you want to look up. It then limits the suggestions to just those so you can quickly pick the right synonym. There's also a full thesaurus option if you prefer that.
 
-##How to build
+## How to build and see an example
 
 - Navigate to the root directory
 
@@ -27,7 +27,7 @@ Our state-of-the-art grammar checker is used by over 500,000 users. It contains 
 - Navigate to [http://localhost:8082/webpack-dev-server/prosemirror.html](http://localhost:8082/webpack-dev-server/prosemirror.html)
 
 
-## Eample usage
+## Example usage
 
 NOTE: You will need to [register](https://prowritingaid.com/en/App/BeyondGrammar) to get a API key first (FREE for Individuals)!
 

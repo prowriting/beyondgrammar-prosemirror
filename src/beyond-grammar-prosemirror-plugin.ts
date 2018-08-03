@@ -23,7 +23,7 @@ export function createBeyondGrammarPluginSpec_(PM : ExternalProseMirror, element
     const DEFAULT_SETTINGS : BGOptions = {
         grammar : {},
         service : {
-            sourcePath : "//prowriting.azureedge.net/beyondgrammar/1.0.176/dist/bundle.js"
+            sourcePath : "//prowritingaid.blob.core.windows.net/cdn/beyondgrammar/release/dist/hayt/bundle.js"
         }
     };
     
@@ -399,7 +399,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         // and broken indexed after image when adding highlights
         return {
             node : node,
-            textContent : this.doc_.textBetween( pos, pos + node.nodeSize, null, " " )
+            textContent : this.doc_.textBetween( pos, pos + node.nodeSize, "\n", "\n" )
         }
     }
 

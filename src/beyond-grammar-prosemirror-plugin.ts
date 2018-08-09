@@ -23,7 +23,7 @@ export function createBeyondGrammarPluginSpec_(PM : ExternalProseMirror, element
     const DEFAULT_SETTINGS : BGOptions = {
         grammar : {},
         service : {
-            sourcePath : "//prowritingaid.blob.core.windows.net/cdn/beyondgrammar/release/dist/hayt/bundle.js"
+            sourcePath : "//cdn.prowritingaid.com/beyondgrammar/release/dist/hayt/bundle.js"
         }
     };
     

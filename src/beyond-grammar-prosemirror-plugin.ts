@@ -2,8 +2,17 @@
 import {ExternalProseMirror} from "../prosemirror";
 
 import {
-    BGOptions, IEditableWrapper,
-    HighlightInfo, Tag, ThesaurusData, BeyondGrammarModule, INodeWrapper, MouseXY, ThrottledFunction, Rectangle
+    BGOptions,
+    IEditableWrapper,
+    HighlightInfo,
+    Tag,
+    ThesaurusData,
+    BeyondGrammarModule,
+    INodeWrapper,
+    MouseXY,
+    ThrottledFunction,
+    Rectangle,
+    SELECTOR_ALL_HIGHLIGHTS_EXCLUDE_IGNORED
 } from "./interfaces/editable-wrapper";
 
 import {Node as PMNode} from "@types/prosemirror-model";
@@ -12,7 +21,7 @@ import {EditorView, EditorProps, DecorationSet, Decoration} from "@types/prosemi
 
 import * as $ from "jquery";
 import {HighlightSpec} from "./highlight-spec";
-import {createDecorationAttributesFromSpec, objectAssign} from "./utils";
+import {createDecorationAttributesFromSpec, nodeAfterRange, nodeSetCursor, objectAssign} from "./utils";
 import {DocRange_, getWindow_, loadBeyondGrammarModule_} from "./utils/dom";
 
 
@@ -475,11 +484,42 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         return decos[0];
     }
 
-    jumpToNextHighlight(): void {}
+    jumpToNextHighlight() {
+        let elem = <HTMLElement>this.nextHighlight();
 
-    nextHighlight(): HTMLElement { return undefined; }
+        if( elem ){
+            let uid = elem.getAttribute('data-pwa-id');
+            this.scrollToHighlight(elem);
 
-    scrollToHighlight(elem: HTMLElement) {}
+            if (this.onShowPopup) {
+                this.onShowPopup(uid, elem, [1, 1], true);
+            }
+        }
+    }
+
+    nextHighlight(): HTMLElement {
+        let doc = getWindow_(this.$element_[0]).document;
+        let selection = doc.getSelection();
+        if( !selection || selection.rangeCount == 0) {
+            return;
+        }
+
+        let selectionRange = selection.getRangeAt(0).cloneRange();
+
+        return <HTMLElement>nodeAfterRange(
+            selectionRange,
+             this.$element_
+                .find(SELECTOR_ALL_HIGHLIGHTS_EXCLUDE_IGNORED)
+                .toArray(),
+            this.$element_[0]
+        );
+    }
+
+    scrollToHighlight(elem: HTMLElement) {
+        nodeSetCursor(elem, true);
+        elem.blur();
+        elem.focus();
+    }
 
     /**
      * Methods stubbed for awhile

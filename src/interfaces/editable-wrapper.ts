@@ -5,6 +5,22 @@ import {IGrammarCheckerSettings} from "./IGrammarCheckerSettings";
 import {IServiceSettings} from "./IServiceSettings";
 import {Node as PMNode} from "@types/prosemirror-model";
 
+//Elements
+export const ELEMENT_TEXTAREA_UNDERLAY = "pwa-container";
+
+//Class names
+export const CLASS_NAME_HIGHLIGHT = "pwa-mark";
+export const CLASS_NAME_IGNORED_HIGHLIGHT = "pwa-mark-ignored";
+
+//Class names with dots
+export const CLASS_HIGHLIGHT = ".pwa-mark";
+export const CLASS_IGNORED_HIGHLIGHT = ".pwa-mark-ignored";
+
+//Selector ready for use in jQuery
+export const SELECTOR_ALL_HIGHLIGHTS = CLASS_HIGHLIGHT;
+export const SELECTOR_EXCLUDE_HIGHLIGHTS = `:not(${CLASS_IGNORED_HIGHLIGHT})`;
+export const SELECTOR_ALL_HIGHLIGHTS_EXCLUDE_IGNORED = `${CLASS_HIGHLIGHT}:not(${CLASS_IGNORED_HIGHLIGHT})`;
+
 export interface BGOptions {
     service ?: IServiceSettings;
     grammar?: IGrammarCheckerSettings;

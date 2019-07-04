@@ -33,13 +33,13 @@ notifications:
 - provider: Slack
   incoming_webhook: 
     secure: Ayc6czyM66EzMrNgNMuWGV6m5ElTa7uzvin0/f6QBfttfkg1gfWy0lkddqkN9APXC4GCl5ekQIyZSpfZheCP7uHEmQC0Zi5Y2hzrMXLrmvE=
-  channel: realtime-grammar
+  channel: web-build
   on_build_success: true
   on_build_failure: true
   on_build_status_changed: false
   
 deploy:
-  provider: AzureBlob
+- provider: AzureBlob
   storage_account_name: prowritingaid
   storage_access_key: 
     secure: gzyqglVhkink16D5LDmANUnHDoe/yvOCDWr79JlBDX5pSf6ewKBwGr1ttNd0a08+J/rQbyEmXw8mLxDLoBJwrFxYqsZQIMEhcR7chDy5p2aNK+wA5IxmI2NFwtW8LaWb

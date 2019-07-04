@@ -35,4 +35,6 @@ You can see an example of how to use the plugin in the [prosemirror.html](https:
 
 You can use our CDB version to load the plugin code:
 
-https://prowriting.azureedge.net/beyondgrammar-prosemirror/1.0.2/dist/beyond-grammar-plugin.js
+https://prowriting.azureedge.net/beyondgrammar-prosemirror/1.0.10/dist/beyond-grammar-plugin.js
+
+<a href="https://jsfiddle.net/prowriting/scskucvr/17/" target="_blank">JSFiddle Integration Demo</a>

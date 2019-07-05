@@ -2,8 +2,17 @@
 import {ExternalProseMirror} from "../prosemirror";
 
 import {
-    BGOptions, IEditableWrapper,
-    HighlightInfo, Tag, ThesaurusData, BeyondGrammarModule, INodeWrapper
+    BGOptions,
+    IEditableWrapper,
+    HighlightInfo,
+    Tag,
+    ThesaurusData,
+    BeyondGrammarModule,
+    INodeWrapper,
+    MouseXY,
+    ThrottledFunction,
+    Rectangle,
+    SELECTOR_ALL_HIGHLIGHTS_EXCLUDE_IGNORED
 } from "./interfaces/editable-wrapper";
 
 import {Node as PMNode} from "@types/prosemirror-model";
@@ -12,7 +21,7 @@ import {EditorView, EditorProps, DecorationSet, Decoration} from "@types/prosemi
 
 import * as $ from "jquery";
 import {HighlightSpec} from "./highlight-spec";
-import {createDecorationAttributesFromSpec, objectAssign} from "./utils";
+import {createDecorationAttributesFromSpec, nodeAfterRange, nodeSetCursor, objectAssign} from "./utils";
 import {DocRange_, getWindow_, loadBeyondGrammarModule_} from "./utils/dom";
 
 
@@ -23,7 +32,7 @@ export function createBeyondGrammarPluginSpec_(PM : ExternalProseMirror, element
     const DEFAULT_SETTINGS : BGOptions = {
         grammar : {},
         service : {
-            sourcePath : "//cdn.prowritingaid.com/beyondgrammar/release/dist/hayt/bundle.js"
+            sourcePath : "//cdn.prowritingaid.com/beyondgrammar/2.0.2893/dist/hayt/bundle.js"
         }
     };
     
@@ -53,12 +62,12 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     editorView: EditorView;
     
     //Wrapper Callbacks 
-    onShowThesaurus: (thesaurusData: ThesaurusData, contextWindow: Window) => boolean;
+    onShowThesaurus: (thesaurusData: ThesaurusData, mouse:MouseXY, contextWindow: Window) => boolean;
     onBlockChanged: (block: HTMLElement) => void;
     onPopupClose: () => void;
     onPopupDeferClose: () => void;
     onCheckRequired: () => void;
-    onShowPopup: (uid: string, elem: Element) => void;
+    onShowPopup: (uid: string, elem: Element, mouseXY : MouseXY, preventCloseByMouseLeave ?: boolean)=>void;
 
     
     private isBound_ : boolean = false;
@@ -98,7 +107,8 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
                 uid = elem.getAttribute('data-pwa-id');
 
             if (this.onShowPopup){
-                this.onShowPopup(uid, elem);
+                let mouse : MouseXY = [evt.clientX, evt.clientY];
+                this.onShowPopup(uid, elem, mouse);
             }
         });
 
@@ -200,8 +210,9 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         let thesaurusData = this.bgModule_.getThesaurusData(getWindow_(this.$element_[0]), this.$element_, $target, true);
 
         this.lastThesaurusData_ = thesaurusData;
-        
-        return this.onShowThesaurus( thesaurusData, getWindow_(this.$element_[0]))
+
+        //TODO MouseXY
+        return this.onShowThesaurus( thesaurusData, [0, 0], getWindow_(this.$element_[0]))
     }
     
     get state(): StateField<any>{
@@ -219,11 +230,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         return changed.length == 0 ? decos : decos.remove(changed);
     }
     
-    /**
-     * Implementations of IEditableWrapper
-     */
-    
-    applyHighlightsSingleBlock(elem:HTMLElement | INodeWrapper, text:string, tags:Tag[], checkAll:boolean):void {
+    applyHighlightsSingleBlock(elem:HTMLElement | INodeWrapper, text:string, tags:Tag[], ignoreSelectors : string[], removeExisting:boolean):void {
 
         // problem is PM is in most cases immutable, so if we started checking on one node, will type something
         // in dom we will have another node, but as we have it returned from closure this node can be 
@@ -475,7 +482,44 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     private getDecoById_(uuid: string):Decoration{
         let decos = this.decos_.find(null,null,spec=>(<HighlightSpec>spec).id == uuid);
         return decos[0];
-    } 
+    }
+
+    jumpToNextHighlight() {
+        let elem = <HTMLElement>this.nextHighlight();
+
+        if( elem ){
+            let uid = elem.getAttribute('data-pwa-id');
+            this.scrollToHighlight(elem);
+
+            if (this.onShowPopup) {
+                this.onShowPopup(uid, elem, [1, 1], true);
+            }
+        }
+    }
+
+    nextHighlight(): HTMLElement {
+        let doc = getWindow_(this.$element_[0]).document;
+        let selection = doc.getSelection();
+        if( !selection || selection.rangeCount == 0) {
+            return;
+        }
+
+        let selectionRange = selection.getRangeAt(0).cloneRange();
+
+        return <HTMLElement>nodeAfterRange(
+            selectionRange,
+             this.$element_
+                .find(SELECTOR_ALL_HIGHLIGHTS_EXCLUDE_IGNORED)
+                .toArray(),
+            this.$element_[0]
+        );
+    }
+
+    scrollToHighlight(elem: HTMLElement) {
+        nodeSetCursor(elem, true);
+        elem.blur();
+        elem.focus();
+    }
 
     /**
      * Methods stubbed for awhile
@@ -489,6 +533,14 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         this.isBound_ = false;
     }
 
+    updateActiveSelection() {}// ????
+
+    prevHighlight(): HTMLElement { return undefined;}
+
+    getAllMarks(): HTMLElement[] { return []; }
+
+    getContainer(): HTMLElement { return undefined; }
+
     bindChangeEvents():void { }
 
     unbindChangeEvents():void { }
@@ -498,6 +550,16 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
     resetSpellCheck():void { }
 
     restoreSpellCheck():void { }
+
+    addHoveredClass($highlight : JQuery){}
+    removeHoveredClass($highlight : JQuery){}
+
+    getActiveHighlightUid: () => (string | null);//skip
+    notifyCursorPositionChanged: ThrottledFunction;//skip
+    onPopupClosed: () => void; //skip
+    getHtml(): string {return "";} //skip
+    setHtml(html: string): void {} //skip
+    getCursorScreenPosition(): Rectangle {return {left : 0, top : 0, width : 0, height : 0};} //skip
 }
 
 //Extending BeyondGrammar namespace

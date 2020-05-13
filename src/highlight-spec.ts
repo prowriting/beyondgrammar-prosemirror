@@ -15,5 +15,6 @@ export class HighlightSpec{
         this.highlightInfo.hint=tag.hint;
         this.highlightInfo.suggestions=tag.suggestions;
         this.highlightInfo.word = word;
+        this.highlightInfo.urls = tag.urls;
     }
 }

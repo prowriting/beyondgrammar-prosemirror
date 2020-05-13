@@ -114,6 +114,7 @@ export interface Tag{
     category : string;
     ruleId : string;
     text: string;
+    urls : string[];
 }
 
 export interface TextAreaRange {
@@ -284,5 +285,6 @@ export class HighlightInfo{
     public category: string;
     public hint: string;
     public suggestions: string[];
+    public urls : string[];
 }
 

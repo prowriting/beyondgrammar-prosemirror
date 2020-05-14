@@ -189,7 +189,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         let self = this;
         this.props_ = {
             decorations() { return this.spec.decos_ },
-            attributes : { spellcheck : "false" },
+            attributes : { spellcheck : "false", "data-gramm": "false", "pwa-fake-editor" : "" },
             handleDoubleClick(){
                 if( !self.isBound_ ){
                     return true;

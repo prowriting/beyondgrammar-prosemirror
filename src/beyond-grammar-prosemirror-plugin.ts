@@ -257,6 +257,8 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         // find the decos from the start and end of this element and remove them
         let decosForBlock = this.decos_.find(start,start + length);
         let newDecos = [];
+
+        tags = tags.filter((t)=>t.category == 'Spelling')
         
         for(let i = 0; i < tags.length; i++){
             let tag = tags[i];
@@ -421,7 +423,7 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
         let cursorPosition = process ? process(tr) : -1;
         
         if( cursorPosition != -1 ){
-            tr.setSelection(this.PM_.state.TextSelection.create(this.doc_, cursorPosition));
+            tr.setSelection(this.PM_.state.TextSelection.create(tr.doc, cursorPosition));
         }
         
         let newState = this.editorView.state.apply( tr );

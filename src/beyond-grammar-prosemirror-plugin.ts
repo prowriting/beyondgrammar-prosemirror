@@ -416,14 +416,13 @@ export class BeyondGrammarProseMirrorPlugin implements PluginSpec, IEditableWrap
 
     private applyDecoUpdateTransaction_(process ?: (tr:Transaction)=>number ){
         let state = this.editorView.state;
-
-        state.tr.setMeta(PWA_DECO_UPDATE_META_, true);
+        const tr = state.tr.setMeta(PWA_DECO_UPDATE_META_, true);
         
-        const cursorPosition = process ? process(state.tr) : -1;
+        const cursorPosition = process ? process(tr) : -1;
 
         // Update state (doc) before setting selection, otherwise ProseMirror complains:
         // - Selection passed to setSelection must point at the current document
-        state = state.apply(state.tr);
+        state = state.apply(tr);
         
         if( cursorPosition != -1 ){
             state = state.apply(

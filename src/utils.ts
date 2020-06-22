@@ -54,6 +54,7 @@ export function createDecorationAttributesFromSpec(spec : HighlightSpec) {
         'data-pwa-hint': spec.tag.hint,
         'data-pwa-suggestions': spec.tag.suggestions.join("~"),
         'data-pwa-dictionary-word' : spec.tag.text,
+        'data-pwa-rule-id' : spec.tag.ruleId,
         tabindex : '0'
     }
 }

@@ -284,5 +284,6 @@ export class HighlightInfo{
     public category: string;
     public hint: string;
     public suggestions: string[];
+    public ruleId : string;
 }
 

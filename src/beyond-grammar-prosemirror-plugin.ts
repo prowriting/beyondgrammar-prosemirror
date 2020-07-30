@@ -30,7 +30,9 @@ const PWA_DECO_UPDATE_META_ = 'pwa-deco-update';
 
 export function createBeyondGrammarPluginSpec_(PM : ExternalProseMirror, element : HTMLElement, bgOptions ?: BGOptions ) {
     const DEFAULT_SETTINGS : BGOptions = {
-        grammar : {},
+        grammar : {
+            heavyGrammar:true
+        },
         service : {
             sourcePath : "//cdn.prowritingaid.com/beyondgrammar/2.0.2893/dist/hayt/bundle.js"
         }

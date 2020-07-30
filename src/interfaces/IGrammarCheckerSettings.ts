@@ -5,4 +5,5 @@ export interface IGrammarCheckerSettings {
     checkStyle ?: boolean;
     showThesaurusByDoubleClick ?: boolean;
     checkerIsEnabled ?: boolean;
+    heavyGrammar ?: boolean;
 }

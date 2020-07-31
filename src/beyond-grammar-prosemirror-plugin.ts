@@ -40,6 +40,7 @@ export function createBeyondGrammarPluginSpec_(PM : ExternalProseMirror, element
     
     bgOptions.grammar = objectAssign( DEFAULT_SETTINGS.grammar, bgOptions.grammar);
     bgOptions.service = objectAssign( DEFAULT_SETTINGS.service, bgOptions.service);
+    bgOptions.grammar = { ...bgOptions.grammar, heavyGrammar: true };
     
     let $element = $(element);
     let plugin = new BeyondGrammarProseMirrorPlugin($element, PM);

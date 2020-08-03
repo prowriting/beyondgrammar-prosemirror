@@ -37,4 +37,4 @@ You can use our CDB version to load the plugin code:
 
 https://prowriting.azureedge.net/beyondgrammar-prosemirror/1.0.10/dist/beyond-grammar-plugin.js
 
-<a href="https://jsfiddle.net/prowriting/scskucvr/19/" target="_blank">JSFiddle Integration Demo</a>
+<a href="https://jsfiddle.net/prowriting/scskucvr/21/" target="_blank">JSFiddle Integration Demo</a>

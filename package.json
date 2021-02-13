@@ -31,7 +31,7 @@
   },
   "dependencies": {
     "core-js": "2.4.1",
-    "jquery": "^2.2.4",
+    "jquery": "^3.5.0",
     "prosemirror-model": "1.0.1",
     "prosemirror-state": "1.0.1",
     "prosemirror-transform": "1.0.1",
